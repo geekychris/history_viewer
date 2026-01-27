@@ -1,0 +1,294 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install dependencies
+        run: |
+          # Xcode command line tools are pre-installed on GitHub runners
+          go mod download
+
+      - name: Build for macOS ${{ matrix.arch }}
+        env:
+          GOOS: darwin
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 1
+        run: |
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            # For arm64 cross-compilation on x86_64 runner
+            export CGO_CFLAGS="-target arm64-apple-macos11"
+            export CGO_LDFLAGS="-target arm64-apple-macos11"
+          fi
+          go build -tags web -o history_viewer-darwin-${{ matrix.arch }} .
+
+      - name: Create tarball
+        run: |
+          tar -czf history_viewer-darwin-${{ matrix.arch }}.tar.gz history_viewer-darwin-${{ matrix.arch }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: history_viewer-darwin-${{ matrix.arch }}
+          path: history_viewer-darwin-${{ matrix.arch }}.tar.gz
+
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Install dependencies (amd64)
+        if: matrix.arch == 'amd64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcursor-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxi-dev \
+            libgl1-mesa-dev \
+            libxxf86vm-dev
+
+      - name: Install dependencies (arm64)
+        if: matrix.arch == 'arm64'
+        run: |
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu \
+            libxcursor-dev:arm64 \
+            libxrandr-dev:arm64 \
+            libxinerama-dev:arm64 \
+            libxi-dev:arm64 \
+            libgl1-mesa-dev:arm64 \
+            libxxf86vm-dev:arm64
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Build for Linux ${{ matrix.arch }}
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 1
+        run: |
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            export CC=aarch64-linux-gnu-gcc
+            export CXX=aarch64-linux-gnu-g++
+          fi
+          go build -tags web -o history_viewer-linux-${{ matrix.arch }} .
+
+      - name: Create tarball
+        run: |
+          tar -czf history_viewer-linux-${{ matrix.arch }}.tar.gz history_viewer-linux-${{ matrix.arch }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: history_viewer-linux-${{ matrix.arch }}
+          path: history_viewer-linux-${{ matrix.arch }}.tar.gz
+
+  create-release:
+    name: Create Release
+    needs: [build-macos, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Display structure
+        run: ls -R ./artifacts
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          for dir in */; do
+            cd "$dir"
+            sha256sum *.tar.gz > checksums.txt
+            cd ..
+          done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/*/*.tar.gz
+            artifacts/*/checksums.txt
+          body: |
+            ## Installation
+
+            ### macOS (Homebrew)
+            ```bash
+            brew tap geekychris/history-viewer
+            brew install history-viewer
+            ```
+
+            ### Manual Installation
+
+            #### macOS (Apple Silicon / M1/M2/M3)
+            ```bash
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/history_viewer-darwin-arm64.tar.gz
+            tar -xzf history_viewer-darwin-arm64.tar.gz
+            sudo mv history_viewer-darwin-arm64 /usr/local/bin/history_viewer
+            chmod +x /usr/local/bin/history_viewer
+            ```
+
+            #### macOS (Intel)
+            ```bash
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/history_viewer-darwin-amd64.tar.gz
+            tar -xzf history_viewer-darwin-amd64.tar.gz
+            sudo mv history_viewer-darwin-amd64 /usr/local/bin/history_viewer
+            chmod +x /usr/local/bin/history_viewer
+            ```
+
+            #### Linux (x86_64)
+            ```bash
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/history_viewer-linux-amd64.tar.gz
+            tar -xzf history_viewer-linux-amd64.tar.gz
+            sudo mv history_viewer-linux-amd64 /usr/local/bin/history_viewer
+            chmod +x /usr/local/bin/history_viewer
+            ```
+
+            #### Linux (ARM64)
+            ```bash
+            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/history_viewer-linux-arm64.tar.gz
+            tar -xzf history_viewer-linux-arm64.tar.gz
+            sudo mv history_viewer-linux-arm64 /usr/local/bin/history_viewer
+            chmod +x /usr/local/bin/history_viewer
+            ```
+
+            ## Verify Installation
+            ```bash
+            history_viewer -h
+            ```
+
+  update-homebrew:
+    name: Update Homebrew Formula
+    needs: create-release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Determine version
+        id: version
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "VERSION_NUMBER=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Wait for release assets
+        run: sleep 30
+
+      - name: Download release assets for checksums
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          curl -LO "https://github.com/${{ github.repository }}/releases/download/${VERSION}/history_viewer-darwin-amd64.tar.gz"
+          curl -LO "https://github.com/${{ github.repository }}/releases/download/${VERSION}/history_viewer-darwin-arm64.tar.gz"
+
+      - name: Calculate SHA256
+        id: sha256
+        run: |
+          AMD64_SHA=$(sha256sum history_viewer-darwin-amd64.tar.gz | awk '{print $1}')
+          ARM64_SHA=$(sha256sum history_viewer-darwin-arm64.tar.gz | awk '{print $1}')
+          echo "AMD64_SHA=${AMD64_SHA}" >> $GITHUB_OUTPUT
+          echo "ARM64_SHA=${ARM64_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Checkout homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: geekychris/homebrew-history-viewer
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update formula
+        run: |
+          cd homebrew-tap
+          cat > Formula/history-viewer.rb << 'EOF'
+          class HistoryViewer < Formula
+            desc "Powerful Go-based tool for analyzing zsh command history with AI-powered insights"
+            homepage "https://github.com/${{ github.repository }}"
+            version "${{ steps.version.outputs.VERSION_NUMBER }}"
+            
+            if Hardware::CPU.arm?
+              url "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/history_viewer-darwin-arm64.tar.gz"
+              sha256 "${{ steps.sha256.outputs.ARM64_SHA }}"
+            else
+              url "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/history_viewer-darwin-amd64.tar.gz"
+              sha256 "${{ steps.sha256.outputs.AMD64_SHA }}"
+            end
+
+            def install
+              if Hardware::CPU.arm?
+                bin.install "history_viewer-darwin-arm64" => "history_viewer"
+              else
+                bin.install "history_viewer-darwin-amd64" => "history_viewer"
+              end
+            end
+
+            test do
+              assert_match "history_viewer", shell_output("#{bin}/history_viewer -h")
+            end
+          end
+          EOF
+
+      - name: Commit and push
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/history-viewer.rb
+          git commit -m "Update history-viewer to ${{ steps.version.outputs.VERSION }}"
+          git push

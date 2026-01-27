@@ -48,32 +48,81 @@ A powerful Go-based tool for analyzing your zsh command history with AI-powered 
 ![History Viewer Main Interface](screenshots/main-view.png)
 *Main interface showing the command timeline, filtering controls, and session cards*
 
-## Prerequisites
+## Installation
 
-- Go 1.23 or higher
-- Zsh with extended history enabled
-- [Ollama](https://ollama.ai/) (optional, for AI features)
-- For native UI: Platform-specific GUI dependencies (see BUILD.md)
+### Option 1: Homebrew (macOS)
 
-## Quick Start
-
-1. **Build the application:**
 ```bash
+brew tap geekychris/history-viewer
+brew install history-viewer
+```
+
+### Option 2: Download Pre-built Binary
+
+Download the latest release for your platform from the [releases page](https://github.com/geekychris/history_viewer/releases).
+
+**macOS Apple Silicon (M1/M2/M3):**
+```bash
+curl -LO https://github.com/geekychris/history_viewer/releases/latest/download/history_viewer-darwin-arm64.tar.gz
+tar -xzf history_viewer-darwin-arm64.tar.gz
+sudo mv history_viewer-darwin-arm64 /usr/local/bin/history_viewer
+chmod +x /usr/local/bin/history_viewer
+```
+
+**macOS Intel:**
+```bash
+curl -LO https://github.com/geekychris/history_viewer/releases/latest/download/history_viewer-darwin-amd64.tar.gz
+tar -xzf history_viewer-darwin-amd64.tar.gz
+sudo mv history_viewer-darwin-amd64 /usr/local/bin/history_viewer
+chmod +x /usr/local/bin/history_viewer
+```
+
+**Linux x86_64:**
+```bash
+curl -LO https://github.com/geekychris/history_viewer/releases/latest/download/history_viewer-linux-amd64.tar.gz
+tar -xzf history_viewer-linux-amd64.tar.gz
+sudo mv history_viewer-linux-amd64 /usr/local/bin/history_viewer
+chmod +x /usr/local/bin/history_viewer
+```
+
+**Linux ARM64:**
+```bash
+curl -LO https://github.com/geekychris/history_viewer/releases/latest/download/history_viewer-linux-arm64.tar.gz
+tar -xzf history_viewer-linux-arm64.tar.gz
+sudo mv history_viewer-linux-arm64 /usr/local/bin/history_viewer
+chmod +x /usr/local/bin/history_viewer
+```
+
+### Option 3: Build from Source
+
+**Prerequisites:**
+- Go 1.23 or higher
+- For native UI: Platform-specific GUI dependencies (see [BUILD.md](BUILD.md))
+
+**Build steps:**
+```bash
+git clone https://github.com/geekychris/history_viewer.git
+cd history_viewer
 go build -o history_viewer
 ```
 
-2. **Run it:**
+## Quick Start
+
+**Run the application:**
 ```bash
 # Web UI (default)
-./history_viewer
+history_viewer
 
 # Native desktop UI
-./history_viewer -ui native
+history_viewer -ui native
 ```
 
-3. **Open in browser** (web UI only): http://localhost:8080
+**Open in browser** (web UI only): http://localhost:8080
 
-For detailed build instructions and prerequisites, see [BUILD.md](BUILD.md).
+## Prerequisites
+
+- Zsh with extended history enabled (see Configuration section)
+- [Ollama](https://ollama.ai/) (optional, for AI features)
 
 ## Configuration
 
