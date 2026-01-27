@@ -15,7 +15,12 @@ If you want to use the native UI mode, you'll need:
 
 **Linux (Ubuntu/Debian):**
 ```bash
-sudo apt-get install gcc libgl1-mesa-dev xorg-dev
+sudo apt-get install gcc libgl1-mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev
+```
+
+Alternatively, install all at once:
+```bash
+sudo apt-get update && sudo apt-get install -y gcc libgl1-mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev
 ```
 
 **Linux (Fedora/RHEL):**
@@ -207,10 +212,19 @@ This is expected and harmless. It's from Fyne's CGo dependencies.
 Make sure you have all required packages:
 ```bash
 # Ubuntu/Debian
-sudo apt-get install gcc libgl1-mesa-dev xorg-dev
+sudo apt-get install gcc libgl1-mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev
 
 # Fedora/RHEL
 sudo dnf install gcc libXcursor-devel libXrandr-devel mesa-libGL-devel libXi-devel libXinerama-devel libXxf86vm-devel
+```
+
+If you encounter specific linker errors like "cannot find -lXxf86vm", install the missing library:
+```bash
+sudo apt-get install libxxf86vm-dev  # for Xxf86vm
+sudo apt-get install libxcursor-dev  # for Xcursor
+sudo apt-get install libxrandr-dev   # for Xrandr
+sudo apt-get install libxinerama-dev # for Xinerama
+sudo apt-get install libxi-dev       # for Xi
 ```
 
 **Build errors on macOS**
