@@ -66,6 +66,72 @@ You should see the help message with available options.
 
 ---
 
+## Install Ollama (Optional - for AI Features)
+
+History Viewer can use Ollama for AI-powered command analysis. This is optional but highly recommended.
+
+### macOS
+
+```bash
+# Download and install from the official website
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Or install via Homebrew
+brew install ollama
+
+# Start Ollama service
+brew services start ollama
+
+# Or run manually
+ollama serve
+```
+
+### Linux (Ubuntu/Debian)
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Ollama will start automatically as a service
+# Check status:
+systemctl status ollama
+
+# Or start manually if needed:
+ollama serve
+```
+
+### Pull a Model
+
+After installing Ollama, download a language model:
+
+```bash
+# Pull the default model (llama3.3 - recommended)
+ollama pull llama3.3
+
+# Or pull a smaller/faster model
+ollama pull llama3.2
+
+# Verify it's working
+ollama list
+```
+
+### Configure History Viewer
+
+History Viewer will automatically connect to Ollama at `http://localhost:11434` with the `llama3.3` model.
+
+To use a different model or URL, edit `~/.history_viewer.json`:
+
+```json
+{
+  "ollama_url": "http://localhost:11434",
+  "ollama_model": "llama3.3"
+}
+```
+
+**Note:** History Viewer works fine without Ollama - you just won't have AI analysis features.
+
+---
+
 ## Running
 
 **Web UI (default):**
