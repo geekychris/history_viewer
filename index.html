@@ -572,6 +572,25 @@ input[type="date"]:focus, select:focus, .search-box:focus {
 .settings-section:last-child {
     border-bottom: none;
 }
+.pattern-item {
+    display: grid;
+    grid-template-columns: 2fr 3fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+.pattern-item-category {
+    font-weight: 600;
+    color: #333;
+}
+.pattern-item-regex {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.85em;
+    color: #6c757d;
+}
 </style>
 </head>
 <body>
@@ -750,6 +769,75 @@ Newest First
 <button class="close-btn" onclick="closeSettingsModal()">&times;</button>
 </div>
 <div style="max-height: 500px; overflow-y: auto; padding-right: 10px;">
+<div class="settings-section">
+<h3 style="margin-bottom: 15px; color: #333;">Custom Command Categories</h3>
+<p style="color: #6c757d; font-size: 0.9em; margin-bottom: 15px;">
+Categorize your custom commands. Custom patterns take priority over built-in patterns.
+</p>
+<div id="custom-patterns-list" style="margin-bottom: 15px;"></div>
+<div style="margin-bottom: 15px;">
+<label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+<input type="radio" name="pattern-mode" value="simple" id="pattern-mode-simple" checked onchange="togglePatternMode()" />
+<strong>Simple Mode</strong> <span style="color: #6c757d; font-size: 0.85em;">(enter command name, automatically handles ./ prefix)</span>
+</label>
+<label style="display: flex; align-items: center; gap: 8px;">
+<input type="radio" name="pattern-mode" value="advanced" id="pattern-mode-advanced" onchange="togglePatternMode()" />
+<strong>Advanced Mode</strong> <span style="color: #6c757d; font-size: 0.85em;">(regex pattern)</span>
+</label>
+</div>
+<div style="display: grid; grid-template-columns: 2fr 3fr auto; gap: 10px; align-items: center; margin-bottom: 10px;">
+<input type="text" id="new-pattern-category" class="settings-input" placeholder="Category name" />
+<input type="text" id="new-pattern-command" class="settings-input" placeholder="Command name (e.g., history_viewer)" />
+<button class="btn btn-primary" onclick="addCustomPattern()" style="padding: 8px 15px;">➕ Add</button>
+</div>
+<div id="pattern-help-simple" style="background: #e7f5e7; border: 1px solid #4caf50; border-radius: 6px; padding: 12px; margin-top: 10px; font-size: 0.85em;">
+<strong>💡 Simple Mode:</strong><br>
+Just enter the command name - we'll handle the rest!<br>
+<div style="margin-top: 8px; padding: 8px; background: white; border-radius: 4px;">
+<strong>Examples:</strong><br>
+• Enter <code>terraform</code> → matches <code>terraform</code> and <code>./terraform</code><br>
+• Enter <code>kubectl</code> → matches <code>kubectl get pods</code><br>
+• Enter <code>my_script</code> → matches <code>./my_script</code> or <code>my_script</code><br>
+</div>
+<div style="margin-top: 8px; color: #666; font-size: 0.9em;">
+Automatically handles <code>./</code> prefix and arguments ✔️
+</div>
+</div>
+<div id="pattern-help-advanced" style="background: #fff3e0; border: 1px solid #ff9800; border-radius: 6px; padding: 12px; margin-top: 10px; font-size: 0.85em; display: none;">
+<strong>🔧 Advanced Mode (Regex):</strong><br>
+Full control with regular expressions<br>
+<div style="margin-top: 8px; padding: 8px; background: white; border-radius: 4px;">
+<strong>Common Patterns:</strong><br>
+• <code>^terraform\s</code> → terraform with arguments<br>
+• <code>^(aws|gcloud|az)\s</code> → multiple cloud CLIs<br>
+• <code>^kubectl\s+(get|describe)</code> → specific subcommands<br>
+• <code>^\.?/scripts/</code> → scripts in a directory<br>
+</div>
+<div style="margin-top: 8px; color: #666; font-size: 0.9em;">
+<strong>Tips:</strong><br>
+• <code>^</code> = start of line | <code>\s</code> = whitespace | <code>|</code> = OR | <code>()</code> = grouping<br>
+• <a href="#" onclick="window.open('https://regex101.com', '_blank'); return false;" style="color: #ff9800;">Test patterns at regex101.com →</a>
+</div>
+</div>
+<details style="margin-top: 10px;">
+<summary style="cursor: pointer; color: #667eea; font-size: 0.85em;">Built-in Categories</summary>
+<div style="margin-top: 10px; font-size: 0.85em; color: #6c757d; line-height: 1.8;">
+<strong>version-control:</strong> git, hg, svn, bzr, cvs<br>
+<strong>build:</strong> make, cmake, cargo, npm, yarn, gradle, mvn, go build, gcc, etc.<br>
+<strong>file-operations:</strong> cp, mv, rm, mkdir, chmod, cat, rsync, etc.<br>
+<strong>navigation:</strong> cd, ls, pwd, tree, find, locate, which<br>
+<strong>dev-tools:</strong> vim, code, gdb, valgrind, strace<br>
+<strong>system-admin:</strong> sudo, systemctl, kill, ps, top, htop, df, du<br>
+<strong>network:</strong> curl, wget, ssh, ping, dig, nc<br>
+<strong>containers:</strong> docker, kubectl, helm, podman<br>
+<strong>database:</strong> psql, mysql, mongo, redis-cli<br>
+<strong>editor:</strong> vim, emacs, nano<br>
+<strong>search:</strong> grep, ag, rg, ack<br>
+<strong>package-manager:</strong> apt, brew, pip, npm, cargo
+</div>
+</details>
+</div>
+
 <div class="settings-section">
 <h3 style="margin-bottom: 15px; color: #333;">Session Heuristics</h3>
 <p style="color: #6c757d; font-size: 0.9em; margin-bottom: 20px;">
@@ -1744,6 +1832,8 @@ function closeSettingsModal() {
     document.getElementById('settingsModal').style.display = 'none';
 }
 
+let customPatterns = [];
+
 async function loadSettings() {
     try {
         const response = await fetch('/api/config');
@@ -1759,10 +1849,105 @@ async function loadSettings() {
         document.getElementById('setting-min-commands').value = config.session_heuristics.min_commands_per_session || 1;
         document.getElementById('setting-max-duration').value = config.session_heuristics.max_session_duration_minutes || 0;
         document.getElementById('setting-short-break').value = config.session_heuristics.short_break_minutes || 5;
+        
+        // Load custom patterns
+        customPatterns = config.custom_category_patterns || [];
+        renderCustomPatterns();
     } catch (error) {
         console.error('Error loading settings:', error);
         alert('Failed to load settings: ' + error.message);
     }
+}
+
+function renderCustomPatterns() {
+    const container = document.getElementById('custom-patterns-list');
+    if (customPatterns.length === 0) {
+        container.innerHTML = '<div style="color: #6c757d; font-size: 0.9em; font-style: italic;">No custom patterns defined</div>';
+        return;
+    }
+    
+    container.innerHTML = customPatterns.map((pattern, index) => {
+        // Try to detect if this is a simple pattern
+        const isSimplePattern = pattern.pattern.match(/^\^[^(|\[\\]+\(\\s\|\$\)$/);
+        let displayText = pattern.pattern;
+        
+        if (isSimplePattern) {
+            // Extract command name from pattern like ^command(\s|$)
+            const match = pattern.pattern.match(/^\^([^(]+)/);
+            if (match) {
+                displayText = `<strong>${escapeHtml(match[1])}</strong> <span style="color: #999; font-size: 0.8em;">(matches command)</span>`;
+            }
+        } else {
+            displayText = `<code>${escapeHtml(pattern.pattern)}</code> <span style="color: #999; font-size: 0.8em;">(regex)</span>`;
+        }
+        
+        return `
+            <div class="pattern-item">
+                <div class="pattern-item-category">${escapeHtml(pattern.category)}</div>
+                <div class="pattern-item-regex">${displayText}</div>
+                <button class="btn-small" onclick="removeCustomPattern(${index})">❌ Remove</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function togglePatternMode() {
+    const isSimple = document.getElementById('pattern-mode-simple').checked;
+    const inputField = document.getElementById('new-pattern-command');
+    const helpSimple = document.getElementById('pattern-help-simple');
+    const helpAdvanced = document.getElementById('pattern-help-advanced');
+    
+    if (isSimple) {
+        inputField.placeholder = 'Command name (e.g., history_viewer)';
+        helpSimple.style.display = 'block';
+        helpAdvanced.style.display = 'none';
+    } else {
+        inputField.placeholder = 'Regex pattern (e.g., ^terraform\\s)';
+        helpSimple.style.display = 'none';
+        helpAdvanced.style.display = 'block';
+    }
+}
+
+function addCustomPattern() {
+    const category = document.getElementById('new-pattern-category').value.trim();
+    const input = document.getElementById('new-pattern-command').value.trim();
+    const isSimple = document.getElementById('pattern-mode-simple').checked;
+    
+    if (!category || !input) {
+        alert('Please enter both category and command/pattern');
+        return;
+    }
+    
+    // Convert simple command to regex pattern
+    let pattern = input;
+    if (isSimple) {
+        // Escape special regex characters in the command name
+        const escaped = input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Create pattern that matches command with or without arguments
+        // Also handles ./ prefix for local executables
+        // Use single backslashes here - JSON.stringify will escape them to double
+        pattern = `^(\./)?${escaped}(\s|$)`;
+    }
+    
+    // Validate regex
+    try {
+        new RegExp(pattern);
+    } catch (e) {
+        alert('Invalid regex pattern: ' + e.message);
+        return;
+    }
+    
+    customPatterns.push({ category, pattern });
+    renderCustomPatterns();
+    
+    // Clear inputs
+    document.getElementById('new-pattern-category').value = '';
+    document.getElementById('new-pattern-command').value = '';
+}
+
+function removeCustomPattern(index) {
+    customPatterns.splice(index, 1);
+    renderCustomPatterns();
 }
 
 async function saveSettings() {
@@ -1783,6 +1968,9 @@ async function saveSettings() {
             max_session_duration_minutes: parseInt(document.getElementById('setting-max-duration').value) || 0,
             short_break_minutes: parseInt(document.getElementById('setting-short-break').value) || 5
         };
+        
+        // Update custom category patterns
+        config.custom_category_patterns = customPatterns.length > 0 ? customPatterns : null;
         
         // Save config
         const saveResponse = await fetch('/api/config', {

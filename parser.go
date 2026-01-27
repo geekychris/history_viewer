@@ -15,6 +15,18 @@ type Parser struct {
 }
 
 func NewParser(config *Config) *Parser {
+	// Initialize custom category patterns from config
+	if len(config.CustomCategoryPatterns) > 0 {
+		patterns := make([]struct {
+			Category string
+			Pattern  string
+		}, len(config.CustomCategoryPatterns))
+		for i, p := range config.CustomCategoryPatterns {
+			patterns[i].Category = p.Category
+			patterns[i].Pattern = p.Pattern
+		}
+		SetCustomCategoryPatterns(patterns)
+	}
 	return &Parser{config: config}
 }
 

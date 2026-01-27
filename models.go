@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -104,8 +105,47 @@ var categoryPatterns = map[CommandCategory]*regexp.Regexp{
 	CategoryPackage:     regexp.MustCompile(`^(apt|apt-get|yum|dnf|pacman|brew|pip|pip3|npm|yarn|cargo|gem|composer)\s`),
 }
 
+// Custom category patterns (set by parser at runtime)
+var customCategoryPatterns []struct {
+	category CommandCategory
+	pattern  *regexp.Regexp
+}
+
+// SetCustomCategoryPatterns configures custom patterns from config
+func SetCustomCategoryPatterns(patterns []struct {
+	Category string
+	Pattern  string
+}) {
+	customCategoryPatterns = nil
+	for _, p := range patterns {
+		if compiled, err := regexp.Compile(p.Pattern); err == nil {
+			customCategoryPatterns = append(customCategoryPatterns, struct {
+				category CommandCategory
+				pattern  *regexp.Regexp
+			}{
+				category: CommandCategory(p.Category),
+				pattern:  compiled,
+			})
+			fmt.Printf("[DEBUG] Loaded custom pattern: category=%s pattern=%q\n", p.Category, p.Pattern)
+			fmt.Printf("[DEBUG] Testing against './history_viewer': %v\n", compiled.MatchString("./history_viewer"))
+			fmt.Printf("[DEBUG] Testing against './history_viewer &': %v\n", compiled.MatchString("./history_viewer &"))
+		} else {
+			fmt.Printf("[DEBUG] Failed to compile pattern %q: %v\n", p.Pattern, err)
+		}
+	}
+}
+
 func CategorizeCommand(cmd string) CommandCategory {
 	cmd = strings.TrimSpace(cmd)
+	
+	// Check custom patterns first (higher priority)
+	for _, custom := range customCategoryPatterns {
+		if custom.pattern.MatchString(cmd) {
+			return custom.category
+		}
+	}
+	
+	// Check built-in patterns
 	for category, pattern := range categoryPatterns {
 		if pattern.MatchString(cmd) {
 			return category

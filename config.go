@@ -8,14 +8,15 @@ import (
 )
 
 type Config struct {
-	HistoryFile       string        `json:"history_file"`
-	Port              int           `json:"port"`
-	SessionTimeout    time.Duration `json:"session_timeout_minutes"`
-	OllamaURL         string        `json:"ollama_url"`
-	OllamaModel       string        `json:"ollama_model"`
-	AutoRefreshSec    int           `json:"auto_refresh_seconds"`
-	HomeDir           string        `json:"home_dir"`
-	SessionHeuristics SessionHeuristics `json:"session_heuristics"`
+	HistoryFile          string                  `json:"history_file"`
+	Port                 int                     `json:"port"`
+	SessionTimeout       time.Duration           `json:"session_timeout_minutes"`
+	OllamaURL            string                  `json:"ollama_url"`
+	OllamaModel          string                  `json:"ollama_model"`
+	AutoRefreshSec       int                     `json:"auto_refresh_seconds"`
+	HomeDir              string                  `json:"home_dir"`
+	SessionHeuristics    SessionHeuristics       `json:"session_heuristics"`
+	CustomCategoryPatterns []CustomCategoryPattern `json:"custom_category_patterns,omitempty"`
 }
 
 // SessionHeuristics defines configurable parameters for session detection
@@ -40,6 +41,12 @@ type SessionHeuristics struct {
 	// ShortBreakMinutes: a "short break" that doesn't end a session (e.g., coffee break)
 	// Only used if less than TimeoutMinutes. Commands within short break are same session.
 	ShortBreakMinutes int `json:"short_break_minutes"`
+}
+
+// CustomCategoryPattern allows users to add custom command categorization rules
+type CustomCategoryPattern struct {
+	Category string `json:"category"`
+	Pattern  string `json:"pattern"` // regex pattern
 }
 
 func LoadConfig() (*Config, error) {
@@ -92,6 +99,10 @@ func LoadConfig() (*Config, error) {
 			}
 			if fileConfig.AutoRefreshSec != 0 {
 				config.AutoRefreshSec = fileConfig.AutoRefreshSec
+			}
+			// Load custom category patterns
+			if len(fileConfig.CustomCategoryPatterns) > 0 {
+				config.CustomCategoryPatterns = fileConfig.CustomCategoryPatterns
 			}
 		}
 	}
