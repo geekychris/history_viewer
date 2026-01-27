@@ -2,6 +2,10 @@
 
 A powerful Go-based tool for analyzing your zsh command history with AI-powered insights via Ollama and comprehensive filtering, visualization, and export capabilities.
 
+**Available in two modes:**
+- **Web UI**: Browser-based interface with interactive charts (default)
+- **Native UI**: Cross-platform desktop application for macOS and Linux
+
 ## Features
 
 ### Core Features
@@ -39,27 +43,41 @@ A powerful Go-based tool for analyzing your zsh command history with AI-powered 
 - 📱 **Responsive Layout**: Works on various screen sizes
 - 🎯 **Smart Interactions**: Hover effects, visual feedback, and intuitive controls
 
+## Screenshots
+
+![History Viewer Main Interface](screenshots/main-view.png)
+*Main interface showing the command timeline, filtering controls, and session cards*
+
 ## Prerequisites
 
-- Go 1.21 or higher
+- Go 1.23 or higher
 - Zsh with extended history enabled
 - [Ollama](https://ollama.ai/) (optional, for AI features)
+- For native UI: Platform-specific GUI dependencies (see BUILD.md)
 
-## Installation
+## Quick Start
 
-1. Clone or navigate to the project directory:
-```bash
-cd history_viewer
-```
-
-2. Build the application:
+1. **Build the application:**
 ```bash
 go build -o history_viewer
 ```
 
+2. **Run it:**
+```bash
+# Web UI (default)
+./history_viewer
+
+# Native desktop UI
+./history_viewer -ui native
+```
+
+3. **Open in browser** (web UI only): http://localhost:8080
+
+For detailed build instructions and prerequisites, see [BUILD.md](BUILD.md).
+
 ## Configuration
 
-The tool will automatically create a config file at `~/.history_viewer.json` on first run with these defaults:
+The tool automatically creates a config file at `~/.history_viewer.json` on first run with these defaults:
 
 ```json
 {
@@ -68,9 +86,19 @@ The tool will automatically create a config file at `~/.history_viewer.json` on 
   "session_timeout_minutes": 30,
   "ollama_url": "http://localhost:11434",
   "ollama_model": "llama3.3",
-  "auto_refresh_seconds": 30
+  "auto_refresh_seconds": 30,
+  "home_dir": "/Users/yourusername"
 }
 ```
+
+**Configuration options:**
+- `history_file` - Path to your zsh history file
+- `port` - Web server port (default: 8080, web UI only)
+- `session_timeout_minutes` - Minutes of inactivity before starting a new session
+- `ollama_url` - Ollama API endpoint for AI features
+- `ollama_model` - Model to use (e.g., llama3.3, codellama, etc.)
+- `auto_refresh_seconds` - How often the UI auto-refreshes
+- `home_dir` - User's home directory (auto-detected)
 
 ### Enabling Extended History in Zsh
 
@@ -94,27 +122,55 @@ source ~/.zshrc
 
 ## Usage
 
-### Basic Usage
+### Web UI (Default)
 
-Start the server:
+Start the web server:
 ```bash
 ./history_viewer
 ```
 
-Then open your browser to http://localhost:8080
+Then open your browser to: **http://localhost:8080**
+
+The web UI provides:
+- Interactive command timeline with drag-to-zoom
+- Responsive design that works on desktop and tablet
+- Real-time auto-refresh every 30 seconds
+- Export to file downloads
+
+### Native UI
+
+Launch the desktop application:
+```bash
+./history_viewer -ui native
+```
+
+The native UI provides:
+- Cross-platform desktop app (macOS, Linux, Windows)
+- Native file dialogs for saving exports
+- No browser required
+- Embedded web view with all web UI features
+- Runs standalone without a separate server
 
 ### Command-line Options
 
 ```bash
-# Use a different port
+# Use native desktop UI
+./history_viewer -ui native
+
+# Use a different port (web UI only)
 ./history_viewer -port 9000
 
 # Use a different history file
 ./history_viewer -history /path/to/custom/.zsh_history
 
 # Combine options
-./history_viewer -port 9000 -history ~/.zsh_history_backup
+./history_viewer -ui native -history ~/.zsh_history_backup
 ```
+
+**Available flags:**
+- `-ui` - UI mode: 'web' (default) or 'native'
+- `-port` - Web server port (default: 8080, web UI only)
+- `-history` - Path to zsh history file (default: ~/.zsh_history)
 
 ## Features Guide
 
@@ -186,25 +242,45 @@ ollama serve
 
 ## Troubleshooting
 
+### Fyne locale warning (Native UI)
+If you see "Failed to load user locales" warning on macOS:
+```bash
+defaults write -g AppleLanguages -array en-US
+```
+
 ### History file not found
 Make sure your zsh history file exists at `~/.zsh_history`. You can check with:
 ```bash
 ls -la ~/.zsh_history
 ```
 
+If it's in a different location, use the `-history` flag or update `~/.history_viewer.json`.
+
 ### No timestamps in history
 If your history doesn't have timestamps, enable extended history (see Configuration section above). Note that only new commands will have timestamps.
 
 ### Ollama connection errors
 - Make sure Ollama is running: `ollama list`
-- Check the Ollama URL in your config
+- Check the Ollama URL in `~/.history_viewer.json`
 - Try pulling the model: `ollama pull llama3.3`
+- Update the config to use a different model if needed
 
-### Port already in use
+### Port already in use (Web UI)
 Use the `-port` flag to specify a different port:
 ```bash
 ./history_viewer -port 9000
 ```
+
+Or kill the process using port 8080:
+```bash
+lsof -ti:8080 | xargs kill
+```
+
+### Build errors (Native UI)
+If you get build errors with the native UI:
+- macOS: Install Xcode command line tools: `xcode-select --install`
+- Linux: Install required packages (see BUILD.md)
+- Use web UI as fallback: `./history_viewer` (without `-ui native`)
 
 ## License
 

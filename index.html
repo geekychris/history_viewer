@@ -27,9 +27,29 @@ header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 30px;
+    position: relative;
 }
 h1 { font-size: 2.5em; margin-bottom: 10px; }
 .subtitle { opacity: 0.9; font-size: 1.1em; }
+.about-link {
+    position: absolute;
+    top: 30px;
+    right: 30px;
+    color: white;
+    text-decoration: none;
+    font-size: 0.9em;
+    padding: 8px 16px;
+    border: 2px solid white;
+    border-radius: 6px;
+    transition: all 0.3s;
+    cursor: pointer;
+    background: rgba(255,255,255,0.1);
+}
+.about-link:hover {
+    background: white;
+    color: #667eea;
+    transform: translateY(-2px);
+}
 .controls {
     padding: 20px 30px;
     background: #f8f9fa;
@@ -288,6 +308,221 @@ input[type="date"]:focus, select:focus, .search-box:focus {
     flex-wrap: wrap;
     align-items: center;
 }
+.commands-scroll-container {
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px;
+    background: #fafafa;
+}
+.commands-scroll-container::-webkit-scrollbar {
+    width: 8px;
+}
+.commands-scroll-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+.commands-scroll-container::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 4px;
+}
+.commands-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #5568d3;
+}
+.keyword-highlight {
+    background-color: #ffeb3b;
+    font-weight: bold;
+    padding: 2px 4px;
+    border-radius: 2px;
+}
+.notes-section, .tags-section {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid #dee2e6;
+}
+.note-item {
+    background: white;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    border-left: 3px solid #667eea;
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 10px;
+}
+.note-text {
+    flex: 1;
+    color: #333;
+    line-height: 1.4;
+}
+.note-meta {
+    font-size: 0.75em;
+    color: #6c757d;
+    margin-top: 4px;
+}
+.tag-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 16px;
+    margin: 4px;
+    font-size: 0.85em;
+    background: white;
+    border: 2px solid #e0e0e0;
+}
+.tag-keyword { font-weight: 600; }
+.tag-stars { color: #ffa500; }
+.tag-color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.btn-small {
+    padding: 4px 8px;
+    font-size: 0.8em;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: #dc3545;
+    color: white;
+    transition: all 0.2s;
+}
+.btn-small:hover { background: #c82333; }
+.btn-icon-small {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #667eea;
+    font-size: 1.1em;
+    transition: all 0.2s;
+}
+.btn-icon-small:hover {
+    color: #5568d3;
+    transform: scale(1.1);
+}
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    animation: fadeIn 0.2s;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-content {
+    background-color: white;
+    margin: 10% auto;
+    padding: 30px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    animation: slideDown 0.3s;
+}
+@keyframes slideDown {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.modal-header h2 { color: #333; }
+.close-btn {
+    font-size: 28px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    line-height: 1;
+}
+.close-btn:hover { color: #000; }
+.form-group {
+    margin-bottom: 15px;
+}
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #495057;
+}
+.form-group input, .form-group textarea, .form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 0.95em;
+    font-family: inherit;
+}
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+.color-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+}
+.color-option {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    border: 2px solid #e0e0e0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.color-option:hover {
+    transform: scale(1.1);
+    border-color: #667eea;
+}
+.color-option.selected {
+    border-color: #667eea;
+    border-width: 3px;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+.star-rating {
+    display: flex;
+    gap: 5px;
+    font-size: 1.5em;
+}
+.star {
+    cursor: pointer;
+    color: #ddd;
+    transition: all 0.2s;
+    font-size: 1.5em;
+    display: inline-block;
+}
+.star::before {
+    content: '☆'; /* Empty star by default */
+}
+.star.filled {
+    color: #ffa500;
+}
+.star.filled::before {
+    content: '★'; /* Filled star */
+}
+.star:hover { 
+    color: #ffb733;
+    transform: scale(1.2);
+}
 </style>
 </head>
 <body>
@@ -295,21 +530,22 @@ input[type="date"]:focus, select:focus, .search-box:focus {
 <header>
 <h1>🔍 Zsh History Viewer</h1>
 <div class="subtitle">Intelligent command history analysis with AI</div>
+<a class="about-link" onclick="openAboutModal()">About</a>
 </header>
 
 <div class="controls">
 <div class="filters-row">
 <div class="filter-group">
 <label>From:</label>
-<input type="date" id="startDate">
+<input type="date" id="startDate" onchange="applyFilters()">
 </div>
 <div class="filter-group">
 <label>To:</label>
-<input type="date" id="endDate">
+<input type="date" id="endDate" onchange="applyFilters()">
 </div>
 <div class="filter-group">
 <label>Category:</label>
-<select id="categoryFilter">
+<select id="categoryFilter" onchange="applyFilters()">
 <option value="all">All Categories</option>
 <option value="version-control">Version Control</option>
 <option value="build">Build</option>
@@ -328,13 +564,36 @@ input[type="date"]:focus, select:focus, .search-box:focus {
 </div>
 <div class="filter-group">
 <label>Keyword:</label>
-<input type="text" class="search-box" id="keywordFilter" placeholder="Search sessions...">
+<input type="text" class="search-box" id="keywordFilter" placeholder="Search sessions..." onkeypress="if(event.key==='Enter') applyFilters()">
 </div>
-<button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
-<button class="btn btn-secondary" onclick="clearFilters()">Clear</button>
-<button class="btn btn-secondary btn-icon" onclick="toggleSort()">
-<span id="sortIcon">🔽</span> <span id="sortLabel">Newest First</span>
-</button>
+<div class="filter-group">
+<label>Note:</label>
+<input type="text" class="search-box" id="noteFilter" placeholder="Search notes..." onkeypress="if(event.key==='Enter') applyFilters()">
+</div>
+<div class="filter-group">
+<label>Tag:</label>
+<input type="text" class="search-box" id="tagKeywordFilter" placeholder="Tag keyword..." onkeypress="if(event.key==='Enter') applyFilters()">
+</div>
+<div class="filter-group">
+<label>Min Stars:</label>
+<select id="tagStarsFilter" onchange="applyFilters()">
+<option value="">Any</option>
+<option value="1">1+ ⭐</option>
+<option value="2">2+ ⭐</option>
+<option value="3">3+ ⭐</option>
+<option value="4">4+ ⭐</option>
+<option value="5">5 ⭐</option>
+</select>
+</div>
+<div class="filter-group" style="margin-left: auto;">
+<label>
+<input type="checkbox" id="newestFirstCheckbox" checked onchange="toggleSort()" style="margin-right: 5px;">
+Newest First
+</label>
+</div>
+</div>
+<div class="filters-row" style="justify-content: space-between; margin-top: 10px;">
+<div style="display: flex; gap: 10px;">
 <button class="btn btn-primary" onclick="refreshData()">🔄 Refresh</button>
 <div class="export-dropdown">
 <button class="btn btn-success">⬇️ Export</button>
@@ -345,6 +604,8 @@ input[type="date"]:focus, select:focus, .search-box:focus {
 <a href="#" onclick="exportData('zsh')">Zsh History</a>
 </div>
 </div>
+</div>
+<button class="btn btn-primary" onclick="applyFilters()" style="padding: 10px 30px;">✔️ Apply Filters</button>
 </div>
 </div>
 
@@ -360,6 +621,102 @@ input[type="date"]:focus, select:focus, .search-box:focus {
 </div>
 </div>
 
+<!-- Note Modal -->
+<div id="noteModal" class="modal">
+<div class="modal-content">
+<div class="modal-header">
+<h2 id="noteModalTitle">Add Note</h2>
+<button class="close-btn" onclick="closeNoteModal()">&times;</button>
+</div>
+<div class="form-group">
+<label for="noteText">Note:</label>
+<textarea id="noteText" placeholder="Enter your note..."></textarea>
+</div>
+<button class="btn btn-primary" onclick="saveNote()">Save Note</button>
+</div>
+</div>
+
+<!-- Tag Modal -->
+<div id="tagModal" class="modal">
+<div class="modal-content">
+<div class="modal-header">
+<h2>Add Tag</h2>
+<button class="close-btn" onclick="closeTagModal()">&times;</button>
+</div>
+<p style="color:#6c757d; margin-bottom:15px; font-size:0.9em;">Add a keyword label to this session. You can add multiple tags.</p>
+<div class="form-group">
+<label for="tagKeyword">Keyword:</label>
+<input type="text" id="tagKeyword" placeholder="e.g., bugfix, feature, important" onkeypress="if(event.key==='Enter') saveTag()">
+</div>
+<div style="display:flex; gap:10px;">
+<button class="btn btn-primary" onclick="saveTag()">Add Tag</button>
+<button class="btn btn-secondary" onclick="saveTagAndNew()">Add & Create Another</button>
+</div>
+</div>
+</div>
+
+<!-- Session Metadata Modal (Color & Stars) -->
+<div id="metadataModal" class="modal">
+<div class="modal-content">
+<div class="modal-header">
+<h2>Set Color & Star Rating</h2>
+<button class="close-btn" onclick="closeMetadataModal()">&times;</button>
+</div>
+<p style="color:#6c757d; margin-bottom:15px; font-size:0.9em;">Set a single color and star rating for this session.</p>
+<div class="form-group">
+<label>Color (optional):</label>
+<div class="color-picker-grid">
+<div class="color-option" style="background:#ff6b6b" data-color="#ff6b6b"></div>
+<div class="color-option" style="background:#4ecdc4" data-color="#4ecdc4"></div>
+<div class="color-option" style="background:#45b7d1" data-color="#45b7d1"></div>
+<div class="color-option" style="background:#96ceb4" data-color="#96ceb4"></div>
+<div class="color-option" style="background:#ffeaa7" data-color="#ffeaa7"></div>
+<div class="color-option" style="background:#dfe6e9" data-color="#dfe6e9"></div>
+<div class="color-option" style="background:#a29bfe" data-color="#a29bfe"></div>
+<div class="color-option" style="background:#fd79a8" data-color="#fd79a8"></div>
+</div>
+<input type="hidden" id="metadataColor">
+</div>
+<div class="form-group">
+<label>Star Rating (optional): <span id="metadataStarLabel">None</span></label>
+<div class="star-rating" id="metadataStarRating">
+<span class="star" data-rating="1"></span>
+<span class="star" data-rating="2"></span>
+<span class="star" data-rating="3"></span>
+<span class="star" data-rating="4"></span>
+<span class="star" data-rating="5"></span>
+</div>
+<input type="hidden" id="metadataStars" value="0">
+</div>
+<button class="btn btn-primary" onclick="saveMetadata()">Save</button>
+</div>
+</div>
+
+<!-- About Modal -->
+<div id="aboutModal" class="modal">
+<div class="modal-content">
+<div class="modal-header">
+<h2>About Zsh History Viewer</h2>
+<button class="close-btn" onclick="closeAboutModal()">&times;</button>
+</div>
+<div style="text-align: center; padding: 20px;">
+<p style="font-size: 1.1em; margin-bottom: 20px; color: #495057;">
+Intelligent command history analysis with AI
+</p>
+<hr style="border: 0; height: 1px; background: #e0e0e0; margin: 20px 0;">
+<p style="color: #6c757d; margin-bottom: 10px;">
+Copyright © 2026
+</p>
+<p style="font-size: 1.1em; font-weight: 500; color: #333; margin-bottom: 5px;">
+Chris Collins
+</p>
+<p>
+<a href="mailto:chris@hitorro.com" style="color: #667eea; text-decoration: none; font-weight: 500;">chris@hitorro.com</a>
+</p>
+</div>
+</div>
+</div>
+
 <script>
 let sessions = [];
 let volumeData = [];
@@ -369,7 +726,10 @@ let filters = {
     startDate: '',
     endDate: '',
     category: 'all',
-    keyword: ''
+    keyword: '',
+    noteSearch: '',
+    tagKeyword: '',
+    tagStars: ''
 };
 let dragStart = null;
 let dragEnd = null;
@@ -398,6 +758,15 @@ async function fetchData() {
         }
         if (filters.keyword) {
             params.append('keyword', filters.keyword);
+        }
+        if (filters.noteSearch) {
+            params.append('note_search', filters.noteSearch);
+        }
+        if (filters.tagKeyword) {
+            params.append('tag_keyword', filters.tagKeyword);
+        }
+        if (filters.tagStars) {
+            params.append('tag_stars', filters.tagStars);
         }
         
         console.log('Fetching with filters:', params.toString());
@@ -600,11 +969,34 @@ function renderSessions() {
         return;
     }
     
-    container.innerHTML = sessions.map(session => `
+    // Determine if we should show all commands (when keyword search is active)
+    const shouldShowAll = filters.keyword && filters.keyword.trim() !== '';
+    
+    container.innerHTML = sessions.map(session => {
+        // Check if this session has matches and where the first match is
+        let firstMatchIndex = -1;
+        if (shouldShowAll) {
+            const tokens = filters.keyword.toLowerCase().split(/\s+/).filter(t => t);
+            for (let i = 0; i < session.commands.length; i++) {
+                const cmd = session.commands[i];
+                const allTokensMatch = tokens.every(token => 
+                    cmd.command.toLowerCase().includes(token)
+                );
+                if (allTokensMatch) {
+                    firstMatchIndex = i;
+                    break;
+                }
+            }
+        }
+        
+        return `
         <div class="session-card">
             <div class="session-header">
                 <div class="session-title">Session #${session.id}: ${escapeHtml(session.description)}</div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn btn-icon-small" onclick="openNoteModal('session', ${session.id})" title="Add Note">📝</button>
+                    <button class="btn btn-icon-small" onclick="openTagModal('session', ${session.id})" title="Add Tag">🏷️</button>
+                    <button class="btn btn-icon-small" onclick="openMetadataModal('session', ${session.id})" title="Set Color & Stars">🎨</button>
                     <button class="btn btn-secondary" onclick="toggleLLMPanel('session-${session.id}')">🤖 AI Analyze</button>
                     <button class="btn btn-success" onclick="toggleExportPanel('session-${session.id}')">📥 Export</button>
                 </div>
@@ -614,12 +1006,16 @@ function renderSessions() {
                 <div class="meta-item">⏱️ ${formatDuration(session.duration)}</div>
                 <div class="meta-item">💻 ${session.commands.length} commands</div>
                 <div class="meta-item">📁 ${session.directories.length} directories</div>
+                ${firstMatchIndex >= 0 ? `<div class="meta-item" style="color:#667eea; font-weight:bold;">📍 Match at command #${firstMatchIndex + 1}</div>` : ''}
             </div>
             <div>
                 ${Object.entries(session.categories || {}).map(([cat, count]) => 
                     `<span class="category-badge">${cat}: ${count}</span>`
                 ).join(' ')}
             </div>
+            ${renderSessionMetadata(session.metadata)}
+            ${renderNotes(session.notes || [], 'session', session.id)}
+            ${renderTags(session.tags || [], 'session', session.id)}
             <div id="llm-panel-session-${session.id}" style="display:none;">
                 <div class="llm-panel">
                     <div style="margin-bottom:15px;">
@@ -648,29 +1044,60 @@ function renderSessions() {
                     </div>
                 </div>
             </div>
-            <div style="margin-top:15px;">
-                ${session.commands.slice(0, 5).map(cmd => renderCommand(cmd)).join('')}
-                ${session.commands.length > 5 ? `
-                    <div style="text-align:center; margin-top:10px;">
-                        <button class="btn btn-secondary" onclick="showAllCommands(${session.id})">
-                            Show all ${session.commands.length} commands
-                        </button>
-                    </div>
-                ` : ''}
+            <div id="commands-container-${session.id}" class="commands-scroll-container" style="margin-top:15px;">
+                ${renderSessionCommands(session, shouldShowAll)}
             </div>
+            ${!shouldShowAll && session.commands.length > 5 ? `
+                <div style="text-align:center; margin-top:10px;">
+                    <button class="btn btn-secondary" onclick="showAllCommands(${session.id})">
+                        Show all ${session.commands.length} commands
+                    </button>
+                </div>
+            ` : ''}
         </div>
-    `).join('');
+    `;
+    }).join('');
+    
+    // After rendering, scroll to first match if keyword search is active
+    if (filters.keyword) {
+        setTimeout(() => scrollToFirstMatch(), 100);
+    }
 }
 
-function renderCommand(cmd) {
+function renderSessionCommands(session, showAll) {
+    const commandsToShow = showAll ? session.commands : session.commands.slice(0, 5);
+    return commandsToShow.map(cmd => renderCommand(cmd, session.id)).join('');
+}
+
+function renderCommand(cmd, sessionId) {
+    let commandText = escapeHtml(cmd.command);
+    let hasMatch = false;
+    
+    // Highlight keywords if search is active
+    if (filters.keyword) {
+        const tokens = filters.keyword.toLowerCase().split(/\s+/);
+        tokens.forEach(token => {
+            if (token) {
+                const regex = new RegExp(`(${escapeRegex(token)})`, 'gi');
+                if (regex.test(cmd.command)) {
+                    hasMatch = true;
+                    commandText = commandText.replace(regex, '<span class="keyword-highlight">$1</span>');
+                }
+            }
+        });
+    }
+    
+    const matchClass = hasMatch ? ' data-has-match="true"' : '';
+    const matchId = hasMatch ? ` id="match-${sessionId}-${cmd.timestamp}"` : '';
+    
     return `
-        <div class="command">
+        <div class="command"${matchClass}${matchId}>
             <div class="command-header">
                 <span>${new Date(cmd.timestamp).toLocaleString()}</span>
                 <span>${escapeHtml(cmd.directory)}</span>
                 <span class="category-badge">${cmd.category}</span>
             </div>
-            <div class="command-text">${escapeHtml(cmd.command)}</div>
+            <div class="command-text">${commandText}</div>
         </div>
     `;
 }
@@ -689,6 +1116,29 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function scrollToFirstMatch() {
+    // Find all session cards
+    const sessionCards = document.querySelectorAll('.session-card');
+    
+    sessionCards.forEach(card => {
+        // Find the first command with a match in this session
+        const firstMatch = card.querySelector('[data-has-match="true"]');
+        if (firstMatch) {
+            // Get the scrollable container
+            const container = card.querySelector('.commands-scroll-container');
+            if (container) {
+                // Scroll to the first match
+                const offsetTop = firstMatch.offsetTop - container.offsetTop;
+                container.scrollTop = offsetTop - 10; // 10px padding from top
+            }
+        }
+    });
 }
 
 function toggleLLMPanel(id) {
@@ -807,6 +1257,9 @@ function applyFilters() {
     filters.endDate = document.getElementById('endDate').value;
     filters.category = document.getElementById('categoryFilter').value;
     filters.keyword = document.getElementById('keywordFilter').value;
+    filters.noteSearch = document.getElementById('noteFilter').value;
+    filters.tagKeyword = document.getElementById('tagKeywordFilter').value;
+    filters.tagStars = document.getElementById('tagStarsFilter').value;
     
     // Close all LLM panels when applying filters so sessions can re-render
     activeLLMPanels.clear();
@@ -819,7 +1272,12 @@ function clearFilters() {
     document.getElementById('endDate').value = '';
     document.getElementById('categoryFilter').value = 'all';
     document.getElementById('keywordFilter').value = '';
-    filters = { startDate: '', endDate: '', category: 'all', keyword: '' };
+    document.getElementById('noteFilter').value = '';
+    document.getElementById('tagKeywordFilter').value = '';
+    document.getElementById('tagStarsFilter').value = '';
+    document.getElementById('newestFirstCheckbox').checked = true;
+    filters = { startDate: '', endDate: '', category: 'all', keyword: '', noteSearch: '', tagKeyword: '', tagStars: '' };
+    currentSort = 'desc';
     
     // Close all LLM panels when clearing filters
     activeLLMPanels.clear();
@@ -828,9 +1286,8 @@ function clearFilters() {
 }
 
 function toggleSort() {
-    currentSort = currentSort === 'desc' ? 'asc' : 'desc';
-    document.getElementById('sortIcon').textContent = currentSort === 'desc' ? '🔽' : '🔼';
-    document.getElementById('sortLabel').textContent = currentSort === 'desc' ? 'Newest First' : 'Oldest First';
+    const checkbox = document.getElementById('newestFirstCheckbox');
+    currentSort = checkbox.checked ? 'desc' : 'asc';
     
     // Close all LLM panels when toggling sort
     activeLLMPanels.clear();
@@ -847,19 +1304,40 @@ function exportData(format) {
 }
 
 function showAllCommands(sessionId) {
+    console.log('showAllCommands called for session:', sessionId);
     const session = sessions.find(s => s.id === sessionId);
     if (!session) {
         console.error('Session not found:', sessionId);
         return;
     }
     
-    // Find the button and its parent container
-    const sessionCard = document.querySelector(`[onclick*="showAllCommands(${sessionId})"]`).closest('.session-card');
-    const commandsContainer = sessionCard.querySelector('[style*="margin-top:15px"]');
+    console.log('Session found with', session.commands.length, 'commands');
+    
+    // Find the commands container by ID
+    const commandsContainer = document.getElementById(`commands-container-${sessionId}`);
+    if (!commandsContainer) {
+        console.error('Commands container not found for session:', sessionId);
+        return;
+    }
+    
+    console.log('Container found, rendering all commands');
     
     // Render all commands
-    const commandsHtml = session.commands.map(cmd => renderCommand(cmd)).join('');
+    const commandsHtml = renderSessionCommands(session, true);
+    console.log('Generated HTML length:', commandsHtml.length);
     commandsContainer.innerHTML = commandsHtml;
+    console.log('Commands rendered successfully');
+    
+    // Hide the "Show all" button
+    const button = document.querySelector(`button[onclick="showAllCommands(${sessionId})"]`);
+    if (button && button.parentElement) {
+        button.parentElement.style.display = 'none';
+    }
+    
+    // Scroll to first match if keyword search is active
+    if (filters.keyword) {
+        setTimeout(() => scrollToFirstMatch(), 100);
+    }
 }
 
 function exportSessionAs(sessionId, language) {
@@ -1019,6 +1497,338 @@ function downloadFile(content, filename) {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
 }
+
+// Notes, Tags, and Metadata functionality
+let currentNoteTarget = {type: '', id: 0};
+let currentTagTarget = {type: '', id: 0};
+let currentMetadataTarget = {type: '', id: 0};
+
+function renderNotes(notes, targetType, targetId) {
+    if (!notes || notes.length === 0) return '';
+    return `
+        <div class="notes-section">
+            <strong style="color:#667eea;">📝 Notes:</strong>
+            ${notes.map(note => `
+                <div class="note-item">
+                    <div>
+                        <div class="note-text">${escapeHtml(note.text)}</div>
+                        <div class="note-meta">Added ${new Date(note.created_at).toLocaleString()}</div>
+                    </div>
+                    <button class="btn-small" onclick="deleteNote('${note.id}')">&times;</button>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderTags(tags, targetType, targetId) {
+    if (!tags || tags.length === 0) return '';
+    return `
+        <div class="tags-section">
+            <strong style="color:#667eea;">🏷️ Tags:</strong>
+            ${tags.map(tag => `
+                <span class="tag-item">
+                    <span class="tag-keyword">${escapeHtml(tag.keyword)}</span>
+                    <button class="btn-small" onclick="deleteTag('${tag.id}')" style="margin-left:6px;">&times;</button>
+                </span>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderSessionMetadata(metadata) {
+    if (!metadata || (!metadata.color_code && !metadata.star_rating)) return '';
+    let parts = [];
+    if (metadata.color_code) parts.push(`<span class="tag-color-dot" style="background:${metadata.color_code}; margin-right:8px;"></span>`);
+    if (metadata.star_rating > 0) parts.push(`<span class="tag-stars">${'⭐'.repeat(metadata.star_rating)}</span>`);
+    return `
+        <div class="tags-section" style="border-top:none; margin-top:8px; padding-top:0;">
+            <strong style="color:#667eea;">Session: </strong>
+            ${parts.join('')}
+        </div>
+    `;
+}
+
+function openNoteModal(type, id) {
+    currentNoteTarget = {type, id};
+    document.getElementById('noteModalTitle').textContent = 'Add Note';
+    document.getElementById('noteText').value = '';
+    document.getElementById('noteModal').style.display = 'block';
+}
+
+function closeNoteModal() {
+    document.getElementById('noteModal').style.display = 'none';
+}
+
+function openTagModal(type, id) {
+    currentTagTarget = {type, id};
+    document.getElementById('tagKeyword').value = '';
+    document.getElementById('tagModal').style.display = 'block';
+    // Focus on input
+    setTimeout(() => document.getElementById('tagKeyword').focus(), 100);
+}
+
+function closeTagModal() {
+    document.getElementById('tagModal').style.display = 'none';
+}
+
+function openMetadataModal(type, id) {
+    currentMetadataTarget = {type, id};
+    
+    // Get current metadata for this session
+    const session = sessions.find(s => s.id === id && type === 'session');
+    const metadata = session?.metadata;
+    
+    // Set current values
+    document.getElementById('metadataColor').value = metadata?.color_code || '';
+    document.getElementById('metadataStars').value = metadata?.star_rating || 0;
+    
+    // Update UI
+    document.getElementById('metadataStarLabel').textContent = 
+        (metadata?.star_rating > 0) ? `${metadata.star_rating} star${metadata.star_rating > 1 ? 's' : ''}` : 'None';
+    
+    // Reset/set color selection
+    document.querySelectorAll('#metadataModal .color-option').forEach(el => {
+        if (el.dataset.color === metadata?.color_code) {
+            el.classList.add('selected');
+        } else {
+            el.classList.remove('selected');
+        }
+    });
+    
+    // Reset/set star rating
+    document.querySelectorAll('#metadataModal .star').forEach((s, index) => {
+        if (index < (metadata?.star_rating || 0)) {
+            s.classList.add('filled');
+        } else {
+            s.classList.remove('filled');
+        }
+    });
+    
+    // Setup star rating listeners for metadata modal
+    setupMetadataStarRating();
+    
+    document.getElementById('metadataModal').style.display = 'block';
+}
+
+function closeMetadataModal() {
+    document.getElementById('metadataModal').style.display = 'none';
+}
+
+function openAboutModal() {
+    document.getElementById('aboutModal').style.display = 'block';
+}
+
+function closeAboutModal() {
+    document.getElementById('aboutModal').style.display = 'none';
+}
+
+async function saveNote() {
+    const text = document.getElementById('noteText').value.trim();
+    if (!text) {
+        alert('Please enter a note');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/metadata/notes', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                target_type: currentNoteTarget.type,
+                target_id: currentNoteTarget.id,
+                text: text
+            })
+        });
+        
+        if (response.ok) {
+            closeNoteModal();
+            fetchData(); // Refresh to show new note
+        } else {
+            const error = await response.text();
+            alert('Failed to save note: ' + error);
+        }
+    } catch (error) {
+        alert('Error saving note: ' + error.message);
+    }
+}
+
+async function deleteNote(noteId) {
+    if (!confirm('Delete this note?')) return;
+    
+    try {
+        const response = await fetch(`/api/metadata/notes?note_id=${noteId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            fetchData(); // Refresh to remove note
+        } else {
+            alert('Failed to delete note');
+        }
+    } catch (error) {
+        alert('Error deleting note: ' + error.message);
+    }
+}
+
+async function saveTag(keepOpen = false) {
+    const keyword = document.getElementById('tagKeyword').value.trim();
+    
+    if (!keyword) {
+        alert('Please enter a keyword');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/metadata/tags', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                target_type: currentTagTarget.type,
+                target_id: currentTagTarget.id,
+                keyword: keyword
+            })
+        });
+        
+        if (response.ok) {
+            if (keepOpen) {
+                // Reset form for next tag
+                document.getElementById('tagKeyword').value = '';
+                document.getElementById('tagKeyword').focus();
+            } else {
+                closeTagModal();
+            }
+            fetchData(); // Refresh to show new tag
+        } else {
+            const error = await response.text();
+            alert('Failed to save tag: ' + error);
+        }
+    } catch (error) {
+        alert('Error saving tag: ' + error.message);
+    }
+}
+
+async function saveTagAndNew() {
+    await saveTag(true);
+}
+
+async function saveMetadata() {
+    const colorCode = document.getElementById('metadataColor').value;
+    const starRating = parseInt(document.getElementById('metadataStars').value) || 0;
+    
+    try {
+        const response = await fetch('/api/metadata/session', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                target_type: currentMetadataTarget.type,
+                target_id: currentMetadataTarget.id,
+                color_code: colorCode,
+                star_rating: starRating
+            })
+        });
+        
+        if (response.ok) {
+            closeMetadataModal();
+            fetchData(); // Refresh to show updated metadata
+        } else {
+            const error = await response.text();
+            alert('Failed to save metadata: ' + error);
+        }
+    } catch (error) {
+        alert('Error saving metadata: ' + error.message);
+    }
+}
+
+async function deleteTag(tagId) {
+    if (!confirm('Delete this tag?')) return;
+    
+    try {
+        const response = await fetch(`/api/metadata/tags?tag_id=${tagId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            fetchData(); // Refresh to remove tag
+        } else {
+            alert('Failed to delete tag');
+        }
+    } catch (error) {
+        alert('Error deleting tag: ' + error.message);
+    }
+}
+
+function setupMetadataStarRating() {
+    const container = document.getElementById('metadataStarRating');
+    const stars = container.querySelectorAll('.star');
+    
+    stars.forEach(star => {
+        // Remove old listeners by cloning
+        const newStar = star.cloneNode(true);
+        star.parentNode.replaceChild(newStar, star);
+    });
+    
+    // Re-query after cloning
+    container.querySelectorAll('.star').forEach(star => {
+        star.addEventListener('click', function() {
+            const rating = parseInt(this.dataset.rating);
+            const currentRating = parseInt(document.getElementById('metadataStars').value);
+            
+            // Toggle: if clicking the same rating, set to 0
+            const newRating = (currentRating === rating) ? 0 : rating;
+            document.getElementById('metadataStars').value = newRating;
+            
+            // Update label
+            document.getElementById('metadataStarLabel').textContent = newRating === 0 ? 'None' : `${newRating} star${newRating > 1 ? 's' : ''}`;
+            
+            // Update visual state
+            container.querySelectorAll('.star').forEach((s, index) => {
+                if (index < newRating) {
+                    s.classList.add('filled');
+                } else {
+                    s.classList.remove('filled');
+                }
+            });
+        });
+        
+        // Hover effect
+        star.addEventListener('mouseenter', function() {
+            const rating = parseInt(this.dataset.rating);
+            container.querySelectorAll('.star').forEach((s, index) => {
+                if (index < rating) {
+                    s.style.color = '#ffb733';
+                } else {
+                    s.style.color = '';
+                }
+            });
+        });
+        
+        star.addEventListener('mouseleave', function() {
+            container.querySelectorAll('.star').forEach(s => {
+                s.style.color = '';
+            });
+        });
+    });
+}
+
+// Color picker interaction
+document.addEventListener('DOMContentLoaded', () => {
+    // Setup color pickers for metadata modal
+    document.querySelectorAll('#metadataModal .color-option').forEach(option => {
+        option.addEventListener('click', function() {
+            document.querySelectorAll('#metadataModal .color-option').forEach(el => el.classList.remove('selected'));
+            this.classList.add('selected');
+            document.getElementById('metadataColor').value = this.dataset.color;
+        });
+    });
+    
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    };
+});
 
 // Initialize
 fetchData();

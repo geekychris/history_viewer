@@ -13,10 +13,12 @@ import (
 )
 
 type Server struct {
+	Config       *Config
 	config       *Config
 	parser       *Parser
 	ollama       *OllamaClient
 	exporter     *Exporter
+	metadata     *MetadataStore
 	sessions     []Session
 	entries      []HistoryEntry
 	lastModTime  time.Time
@@ -24,11 +26,17 @@ type Server struct {
 }
 
 func NewServer(config *Config) *Server {
+	metadata, err := NewMetadataStore()
+	if err != nil {
+		log.Printf("Warning: Failed to load metadata: %v", err)
+	}
+	
 	return &Server{
 		config:   config,
 		parser:   NewParser(config),
 		ollama:   NewOllamaClient(config.OllamaURL, config.OllamaModel),
 		exporter: NewExporter(),
+		metadata: metadata,
 	}
 }
 
@@ -67,6 +75,10 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/export", s.handleExport)
 	http.HandleFunc("/api/llm/analyze", s.handleLLMAnalyze)
 	http.HandleFunc("/api/config", s.handleConfig)
+	// Metadata routes
+	http.HandleFunc("/api/metadata/notes", s.handleNotes)
+	http.HandleFunc("/api/metadata/tags", s.handleTags)
+	http.HandleFunc("/api/metadata/session", s.handleSessionMetadata)
 
 	addr := fmt.Sprintf(":%d", s.config.Port)
 	log.Printf("Starting history viewer on http://localhost%s\n", addr)
@@ -107,6 +119,10 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	keyword := r.URL.Query().Get("keyword")
 	sortOrder := r.URL.Query().Get("sort") // "asc" or "desc"
+	tagKeyword := r.URL.Query().Get("tag_keyword")
+	tagColor := r.URL.Query().Get("tag_color")
+	tagStarsStr := r.URL.Query().Get("tag_stars")
+	noteSearch := r.URL.Query().Get("note_search")
 
 	// Filter sessions
 	filteredSessions := make([]Session, 0)
@@ -143,29 +159,148 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		
-		// Keyword filtering
+		// Keyword filtering - split by whitespace and match all tokens
 		if keyword != "" {
-			found := false
-			keywordLower := strings.ToLower(keyword)
-			// Search in description
-			if strings.Contains(strings.ToLower(session.Description), keywordLower) {
-				found = true
+			// Split keyword into tokens
+			tokens := strings.Fields(strings.ToLower(keyword))
+			if len(tokens) == 0 {
+				continue
 			}
-			// Search in commands
-			if !found {
-				for _, cmd := range session.Commands {
-					if strings.Contains(strings.ToLower(cmd.Command), keywordLower) {
-						found = true
-						break
+			
+			// Check if all tokens are found in session
+			allTokensFound := true
+			for _, token := range tokens {
+				tokenFound := false
+				
+				// Search in description
+				if strings.Contains(strings.ToLower(session.Description), token) {
+					tokenFound = true
+				}
+				
+				// Search in commands if not found in description
+				if !tokenFound {
+					for _, cmd := range session.Commands {
+						if strings.Contains(strings.ToLower(cmd.Command), token) {
+							tokenFound = true
+							break
+						}
 					}
 				}
+				
+				if !tokenFound {
+					allTokensFound = false
+					break
+				}
 			}
-			if !found {
+			
+	if !allTokensFound {
 				continue
 			}
 		}
 		
 		filteredSessions = append(filteredSessions, session)
+	}
+
+	// Merge metadata into sessions first, so we can filter by notes and tags
+	if s.metadata != nil {
+		filteredSessions = s.metadata.MergeIntoSessions(filteredSessions)
+	}
+
+	// Filter by tag keywords
+	if tagKeyword != "" {
+		filteredByTags := make([]Session, 0)
+		for _, session := range filteredSessions {
+			hasMatchingTag := false
+
+			// Check session tags
+			for _, tag := range session.Tags {
+				if strings.Contains(strings.ToLower(tag.Keyword), strings.ToLower(tagKeyword)) {
+					hasMatchingTag = true
+					break
+				}
+			}
+
+			// Check command tags if no session tag matched
+			if !hasMatchingTag {
+				for _, cmd := range session.Commands {
+					for _, tag := range cmd.Tags {
+						if strings.Contains(strings.ToLower(tag.Keyword), strings.ToLower(tagKeyword)) {
+							hasMatchingTag = true
+							break
+						}
+					}
+					if hasMatchingTag {
+						break
+					}
+				}
+			}
+
+			if hasMatchingTag {
+				filteredByTags = append(filteredByTags, session)
+			}
+		}
+		filteredSessions = filteredByTags
+	}
+
+	// Filter by color (from session metadata)
+	if tagColor != "" {
+		filteredByColor := make([]Session, 0)
+		for _, session := range filteredSessions {
+			if session.Metadata != nil && strings.EqualFold(session.Metadata.ColorCode, tagColor) {
+				filteredByColor = append(filteredByColor, session)
+			}
+		}
+		filteredSessions = filteredByColor
+	}
+
+	// Filter by star rating (from session metadata)
+	if tagStarsStr != "" {
+		tagStars, _ := strconv.Atoi(tagStarsStr)
+		if tagStars > 0 {
+			filteredByStars := make([]Session, 0)
+			for _, session := range filteredSessions {
+				if session.Metadata != nil && session.Metadata.StarRating >= tagStars {
+					filteredByStars = append(filteredByStars, session)
+				}
+			}
+			filteredSessions = filteredByStars
+		}
+	}
+
+	// Filter by notes
+	if noteSearch != "" {
+		filteredByNotes := make([]Session, 0)
+		for _, session := range filteredSessions {
+			hasMatchingNote := false
+
+			// Check session notes
+			for _, note := range session.Notes {
+				if strings.Contains(strings.ToLower(note.Text), strings.ToLower(noteSearch)) {
+					hasMatchingNote = true
+					break
+				}
+			}
+
+			// Check command notes if no session note matched
+			if !hasMatchingNote {
+				for _, cmd := range session.Commands {
+					for _, note := range cmd.Notes {
+						if strings.Contains(strings.ToLower(note.Text), strings.ToLower(noteSearch)) {
+							hasMatchingNote = true
+							break
+						}
+					}
+					if hasMatchingNote {
+						break
+					}
+				}
+			}
+
+			if hasMatchingNote {
+				filteredByNotes = append(filteredByNotes, session)
+			}
+		}
+		filteredSessions = filteredByNotes
 	}
 
 	// Sort sessions
@@ -202,6 +337,13 @@ func (s *Server) handleSessionDetail(w http.ResponseWriter, r *http.Request) {
 
 	for _, session := range s.sessions {
 		if session.ID == sessionID {
+			// Merge metadata
+			if s.metadata != nil {
+				sessions := s.metadata.MergeIntoSessions([]Session{session})
+				if len(sessions) > 0 {
+					session = sessions[0]
+				}
+			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(session)
 			return
@@ -215,8 +357,13 @@ func (s *Server) handleCommands(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	entries := s.entries
+	if s.metadata != nil {
+		entries = s.metadata.MergeIntoCommands(entries)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s.entries)
+	json.NewEncoder(w).Encode(entries)
 }
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
@@ -362,8 +509,18 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	format := r.URL.Query().Get("format")
 	sessionIDStr := r.URL.Query().Get("session")
 
+	// Get filter parameters (same as handleSessions)
+	startDate := r.URL.Query().Get("startDate")
+	endDate := r.URL.Query().Get("endDate")
+	category := r.URL.Query().Get("category")
+	keyword := r.URL.Query().Get("keyword")
+	noteSearch := r.URL.Query().Get("noteSearch")
+	tagKeyword := r.URL.Query().Get("tagKeyword")
+	tagStarsStr := r.URL.Query().Get("tagStars")
+
 	var sessions []Session
 	if sessionIDStr != "" {
+		// Export specific session
 		sessionID, err := strconv.Atoi(sessionIDStr)
 		if err == nil {
 			for _, session := range s.sessions {
@@ -374,7 +531,152 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		sessions = s.sessions
+		// Apply filters (same logic as handleSessions)
+		filteredSessions := make([]Session, 0)
+		for _, session := range s.sessions {
+			// Date filtering
+			if startDate != "" {
+				if start, err := time.Parse("2006-01-02", startDate); err == nil {
+					if session.StartTime.Before(start) {
+						continue
+					}
+				}
+			}
+			if endDate != "" {
+				if end, err := time.Parse("2006-01-02", endDate); err == nil {
+					end = end.Add(24 * time.Hour)
+					if session.EndTime.After(end) {
+						continue
+					}
+				}
+			}
+
+			// Category filtering
+			if category != "" && category != "all" {
+				found := false
+				for cat := range session.Categories {
+					if string(cat) == category {
+						found = true
+						break
+					}
+				}
+				if !found {
+					continue
+				}
+			}
+
+			// Keyword filtering
+			if keyword != "" {
+				tokens := strings.Fields(strings.ToLower(keyword))
+				allTokensFound := true
+				for _, token := range tokens {
+					tokenFound := false
+					if strings.Contains(strings.ToLower(session.Description), token) {
+						tokenFound = true
+					}
+					if !tokenFound {
+						for _, cmd := range session.Commands {
+							if strings.Contains(strings.ToLower(cmd.Command), token) {
+								tokenFound = true
+								break
+							}
+						}
+					}
+					if !tokenFound {
+						allTokensFound = false
+						break
+					}
+				}
+				if !allTokensFound {
+					continue
+				}
+			}
+
+			filteredSessions = append(filteredSessions, session)
+		}
+
+		// Merge metadata for filtered sessions
+		if s.metadata != nil {
+			filteredSessions = s.metadata.MergeIntoSessions(filteredSessions)
+		}
+
+		// Filter by tag keywords
+		if tagKeyword != "" {
+			temp := make([]Session, 0)
+			for _, session := range filteredSessions {
+				hasMatchingTag := false
+				for _, tag := range session.Tags {
+					if strings.Contains(strings.ToLower(tag.Keyword), strings.ToLower(tagKeyword)) {
+						hasMatchingTag = true
+						break
+					}
+				}
+				if !hasMatchingTag {
+					for _, cmd := range session.Commands {
+						for _, tag := range cmd.Tags {
+							if strings.Contains(strings.ToLower(tag.Keyword), strings.ToLower(tagKeyword)) {
+								hasMatchingTag = true
+								break
+							}
+						}
+						if hasMatchingTag {
+							break
+						}
+					}
+				}
+				if hasMatchingTag {
+					temp = append(temp, session)
+				}
+			}
+			filteredSessions = temp
+		}
+
+		// Filter by star rating
+		if tagStarsStr != "" {
+			tagStars, _ := strconv.Atoi(tagStarsStr)
+			if tagStars > 0 {
+				temp := make([]Session, 0)
+				for _, session := range filteredSessions {
+					if session.Metadata != nil && session.Metadata.StarRating >= tagStars {
+						temp = append(temp, session)
+					}
+				}
+				filteredSessions = temp
+			}
+		}
+
+		// Filter by notes
+		if noteSearch != "" {
+			temp := make([]Session, 0)
+			for _, session := range filteredSessions {
+				hasMatchingNote := false
+				for _, note := range session.Notes {
+					if strings.Contains(strings.ToLower(note.Text), strings.ToLower(noteSearch)) {
+						hasMatchingNote = true
+						break
+					}
+				}
+				if !hasMatchingNote {
+					for _, cmd := range session.Commands {
+						for _, note := range cmd.Notes {
+							if strings.Contains(strings.ToLower(note.Text), strings.ToLower(noteSearch)) {
+								hasMatchingNote = true
+								break
+							}
+						}
+						if hasMatchingNote {
+							break
+						}
+					}
+				}
+				if hasMatchingNote {
+					temp = append(temp, session)
+				}
+			}
+			filteredSessions = temp
+		}
+
+		sessions = filteredSessions
 	}
 
 	var content string
@@ -520,4 +822,332 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+}
+
+func (s *Server) handleNotes(w http.ResponseWriter, r *http.Request) {
+	if s.metadata == nil {
+		http.Error(w, "Metadata store not available", http.StatusInternalServerError)
+		return
+	}
+
+	switch r.Method {
+	case "POST":
+		var req struct {
+			TargetType string `json:"target_type"`
+			TargetID   int    `json:"target_id"`
+			Text       string `json:"text"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if req.Text == "" {
+			http.Error(w, "Note text is required", http.StatusBadRequest)
+			return
+		}
+
+		targetType := TargetType(req.TargetType)
+		if targetType != TargetSession && targetType != TargetCommand {
+			http.Error(w, "Invalid target_type. Must be 'session' or 'command'", http.StatusBadRequest)
+			return
+		}
+
+		note, err := s.metadata.AddNote(targetType, req.TargetID, req.Text)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to add note: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(note)
+
+	case "PUT":
+		var req struct {
+			NoteID string `json:"note_id"`
+			Text   string `json:"text"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if req.NoteID == "" || req.Text == "" {
+			http.Error(w, "note_id and text are required", http.StatusBadRequest)
+			return
+		}
+
+		note, err := s.metadata.UpdateNote(req.NoteID, req.Text)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to update note: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(note)
+
+	case "DELETE":
+		noteID := r.URL.Query().Get("note_id")
+		if noteID == "" {
+			http.Error(w, "note_id query parameter is required", http.StatusBadRequest)
+			return
+		}
+
+		if err := s.metadata.DeleteNote(noteID); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to delete note: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "Note deleted"})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleTags(w http.ResponseWriter, r *http.Request) {
+	if s.metadata == nil {
+		http.Error(w, "Metadata store not available", http.StatusInternalServerError)
+		return
+	}
+
+	switch r.Method {
+	case "POST":
+		var req struct {
+			TargetType string `json:"target_type"`
+			TargetID   int    `json:"target_id"`
+			Keyword    string `json:"keyword"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		targetType := TargetType(req.TargetType)
+		if targetType != TargetSession && targetType != TargetCommand {
+			http.Error(w, "Invalid target_type. Must be 'session' or 'command'", http.StatusBadRequest)
+			return
+		}
+
+		if req.Keyword == "" {
+			http.Error(w, "keyword is required", http.StatusBadRequest)
+			return
+		}
+
+		tag, err := s.metadata.AddTag(targetType, req.TargetID, req.Keyword)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to add tag: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(tag)
+
+	case "DELETE":
+		tagID := r.URL.Query().Get("tag_id")
+		if tagID == "" {
+			http.Error(w, "tag_id query parameter is required", http.StatusBadRequest)
+			return
+		}
+
+		if err := s.metadata.DeleteTag(tagID); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to delete tag: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "message": "Tag deleted"})
+
+	default:
+	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) handleSessionMetadata(w http.ResponseWriter, r *http.Request) {
+	if s.metadata == nil {
+		http.Error(w, "Metadata store not available", http.StatusInternalServerError)
+		return
+	}
+
+	switch r.Method {
+	case "POST", "PUT":
+		var req struct {
+			TargetType string `json:"target_type"`
+			TargetID   int    `json:"target_id"`
+			ColorCode  string `json:"color_code"`
+			StarRating int    `json:"star_rating"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		targetType := TargetType(req.TargetType)
+		if targetType != TargetSession && targetType != TargetCommand {
+			http.Error(w, "Invalid target_type. Must be 'session' or 'command'", http.StatusBadRequest)
+			return
+		}
+
+		metadata, err := s.metadata.SetSessionMetadata(targetType, req.TargetID, req.ColorCode, req.StarRating)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to set metadata: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(metadata)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// Helper methods for native UI
+
+func (s *Server) ParseHistory() error {
+	return s.refreshData()
+}
+
+func (s *Server) GetSessions(startDate, endDate, category, keyword string) []*Session {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	filteredSessions := make([]*Session, 0)
+	for i := range s.sessions {
+		session := &s.sessions[i]
+		
+		// Date filtering
+		if startDate != "" {
+			if start, err := time.Parse("2006-01-02", startDate); err == nil {
+				if session.StartTime.Before(start) {
+					continue
+				}
+			}
+		}
+		if endDate != "" {
+			if end, err := time.Parse("2006-01-02", endDate); err == nil {
+				end = end.Add(24 * time.Hour)
+				if session.EndTime.After(end) {
+					continue
+				}
+			}
+		}
+		
+		// Category filtering
+		if category != "" && category != "all" {
+			found := false
+			for cat := range session.Categories {
+				if string(cat) == category {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+		
+		// Keyword filtering
+		if keyword != "" {
+			found := false
+			keywordLower := strings.ToLower(keyword)
+			if strings.Contains(strings.ToLower(session.Description), keywordLower) {
+				found = true
+			}
+			if !found {
+				for _, cmd := range session.Commands {
+					if strings.Contains(strings.ToLower(cmd.Command), keywordLower) {
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+		
+		filteredSessions = append(filteredSessions, session)
+	}
+
+	return filteredSessions
+}
+
+func (s *Server) ExportSessions(sessions []*Session, format string) ([]byte, error) {
+	// Convert pointers to values for exporter
+	valueSessions := make([]Session, len(sessions))
+	for i, session := range sessions {
+		valueSessions[i] = *session
+	}
+
+	switch format {
+	case "json":
+		return json.MarshalIndent(valueSessions, "", "  ")
+	case "csv":
+		return []byte(s.exporter.ToCSV(valueSessions)), nil
+	case "markdown":
+		return []byte(s.exporter.ToMarkdown(valueSessions)), nil
+	case "zsh":
+		return []byte(s.exporter.ToZshHistory(valueSessions)), nil
+	default:
+		return nil, fmt.Errorf("unsupported format: %s", format)
+	}
+}
+
+func (s *Server) ConvertToScript(sessions []*Session, lang string) string {
+	// Collect all commands from sessions
+	var commands []string
+	for _, session := range sessions {
+		for _, cmd := range session.Commands {
+			commands = append(commands, cmd.Command)
+		}
+	}
+
+	switch lang {
+	case "bash":
+		return s.exporter.ToBashScript(commands)
+	case "python":
+		return s.exporter.ToPythonScript(commands)
+	case "java":
+		return s.exporter.ToJavaProgram(commands)
+	case "go":
+		return s.exporter.ToGoProgram(commands)
+	default:
+		return ""
+	}
+}
+
+func (s *Server) AnalyzeSession(sessionID string, action string, customPrompt string) (string, error) {
+	s.mu.RLock()
+	var session *Session
+	sessionIDInt, err := strconv.Atoi(sessionID)
+	if err != nil {
+		s.mu.RUnlock()
+		return "", fmt.Errorf("invalid session ID: %w", err)
+	}
+	
+	for i := range s.sessions {
+		if s.sessions[i].ID == sessionIDInt {
+			session = &s.sessions[i]
+			break
+		}
+	}
+	s.mu.RUnlock()
+
+	if session == nil {
+		return "", fmt.Errorf("session not found")
+	}
+
+	if customPrompt != "" {
+		return s.ollama.AnalyzeSessionWithPrompt(customPrompt, session)
+	}
+
+	return s.ollama.AnalyzeSession(action, session)
 }

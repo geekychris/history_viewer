@@ -6,6 +6,37 @@ import (
 	"time"
 )
 
+type TargetType string
+
+const (
+	TargetSession TargetType = "session"
+	TargetCommand TargetType = "command"
+)
+
+type Note struct {
+	ID         string     `json:"id"`
+	TargetType TargetType `json:"target_type"`
+	TargetID   int        `json:"target_id"`
+	Text       string     `json:"text"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
+type Tag struct {
+	ID         string     `json:"id"`
+	TargetType TargetType `json:"target_type"`
+	TargetID   int        `json:"target_id"`
+	Keyword    string     `json:"keyword"` // Just a keyword/label
+}
+
+type SessionMetadata struct {
+	ID         string     `json:"id"`
+	TargetType TargetType `json:"target_type"`
+	TargetID   int        `json:"target_id"`
+	ColorCode  string     `json:"color_code,omitempty"`  // hex color like "#ff0000"
+	StarRating int        `json:"star_rating,omitempty"` // 0-5 (0 means not set)
+}
+
 type CommandCategory string
 
 const (
@@ -33,17 +64,22 @@ type HistoryEntry struct {
 	Category       CommandCategory `json:"category"`
 	BaseCommand    string          `json:"base_command"`
 	SessionID      int             `json:"session_id"`
+	Notes          []Note          `json:"notes,omitempty"`
+	Tags           []Tag           `json:"tags,omitempty"`
 }
 
 type Session struct {
-	ID           int            `json:"id"`
-	StartTime    time.Time      `json:"start_time"`
-	EndTime      time.Time      `json:"end_time"`
-	Duration     time.Duration  `json:"duration"`
-	Commands     []HistoryEntry `json:"commands"`
-	Directories  []string       `json:"directories"`
+	ID           int              `json:"id"`
+	StartTime    time.Time        `json:"start_time"`
+	EndTime      time.Time        `json:"end_time"`
+	Duration     time.Duration    `json:"duration"`
+	Commands     []HistoryEntry   `json:"commands"`
+	Directories  []string         `json:"directories"`
 	Categories   map[CommandCategory]int `json:"categories"`
-	Description  string         `json:"description"`
+	Description  string           `json:"description"`
+	Notes        []Note           `json:"notes,omitempty"`
+	Tags         []Tag            `json:"tags,omitempty"`
+	Metadata     *SessionMetadata `json:"metadata,omitempty"` // Color and star rating
 }
 
 type CommandPattern struct {

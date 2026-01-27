@@ -110,3 +110,13 @@ func (c *OllamaClient) AnalyzeSession(action string, session *Session) (string, 
 	}
 	return c.AnalyzeCommands(action, commands)
 }
+
+func (c *OllamaClient) AnalyzeSessionWithPrompt(customPrompt string, session *Session) (string, error) {
+	commands := make([]string, len(session.Commands))
+	for i, cmd := range session.Commands {
+		commands[i] = cmd.Command
+	}
+	commandStr := strings.Join(commands, "\n")
+	prompt := fmt.Sprintf("%s\n\nCommands:\n%s", customPrompt, commandStr)
+	return c.Generate(prompt)
+}

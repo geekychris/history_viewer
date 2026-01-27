@@ -119,3 +119,116 @@ func (e *Exporter) ExportSessionsToZsh(sessions []Session) string {
 	}
 	return e.ExportZshHistory(entries)
 }
+
+// Wrapper methods for native UI compatibility
+
+func (e *Exporter) ToCSV(sessions []Session) string {
+	result, _ := e.ExportCSV(sessions)
+	return result
+}
+
+func (e *Exporter) ToMarkdown(sessions []Session) string {
+	return e.ExportMarkdown(sessions)
+}
+
+func (e *Exporter) ToZshHistory(sessions []Session) string {
+	return e.ExportSessionsToZsh(sessions)
+}
+
+func (e *Exporter) ToBashScript(commands []string) string {
+	var buf strings.Builder
+	buf.WriteString("#!/bin/bash\n\n")
+	buf.WriteString("# Generated from zsh history\n")
+	buf.WriteString("# Generated at: " + time.Now().Format(time.RFC1123) + "\n\n")
+	buf.WriteString("set -e\n\n")
+	for i, cmd := range commands {
+		buf.WriteString(fmt.Sprintf("# Command %d\n", i+1))
+		buf.WriteString(cmd + "\n\n")
+	}
+	return buf.String()
+}
+
+func (e *Exporter) ToPythonScript(commands []string) string {
+	var buf strings.Builder
+	buf.WriteString("#!/usr/bin/env python3\n\n")
+	buf.WriteString("import subprocess\n")
+	buf.WriteString("import sys\n\n")
+	buf.WriteString("# Generated from zsh history\n")
+	buf.WriteString("# Generated at: " + time.Now().Format(time.RFC1123) + "\n\n")
+	buf.WriteString("commands = [\n")
+	for _, cmd := range commands {
+		escaped := strings.ReplaceAll(cmd, "\"", "\\\"")
+		buf.WriteString(fmt.Sprintf("    \"%s\",\n", escaped))
+	}
+	buf.WriteString("]\n\n")
+	buf.WriteString("for i, cmd in enumerate(commands, 1):\n")
+	buf.WriteString("    print(f'Executing command {i}/{len(commands)}: {cmd}')\n")
+	buf.WriteString("    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)\n")
+	buf.WriteString("    if result.returncode != 0:\n")
+	buf.WriteString("        print(f'Error: {result.stderr}', file=sys.stderr)\n")
+	buf.WriteString("        sys.exit(result.returncode)\n")
+	buf.WriteString("    print(result.stdout)\n")
+	return buf.String()
+}
+
+func (e *Exporter) ToJavaProgram(commands []string) string {
+	var buf strings.Builder
+	buf.WriteString("import java.io.*;\n")
+	buf.WriteString("import java.util.*;\n\n")
+	buf.WriteString("public class HistoryCommands {\n")
+	buf.WriteString("    public static void main(String[] args) throws IOException, InterruptedException {\n")
+	buf.WriteString("        String[] commands = {\n")
+	for i, cmd := range commands {
+		escaped := strings.ReplaceAll(cmd, "\"", "\\\"")
+		if i < len(commands)-1 {
+			buf.WriteString(fmt.Sprintf("            \"%s\",\n", escaped))
+		} else {
+			buf.WriteString(fmt.Sprintf("            \"%s\"\n", escaped))
+		}
+	}
+	buf.WriteString("        };\n\n")
+	buf.WriteString("        for (int i = 0; i < commands.length; i++) {\n")
+	buf.WriteString("            System.out.println(\"Executing command \" + (i+1) + \"/\" + commands.length + \": \" + commands[i]);\n")
+	buf.WriteString("            Process process = new ProcessBuilder(\"sh\", \"-c\", commands[i])\n")
+	buf.WriteString("                .redirectErrorStream(true)\n")
+	buf.WriteString("                .start();\n")
+	buf.WriteString("            int exitCode = process.waitFor();\n")
+	buf.WriteString("            if (exitCode != 0) {\n")
+	buf.WriteString("                System.err.println(\"Command failed with exit code: \" + exitCode);\n")
+	buf.WriteString("                System.exit(exitCode);\n")
+	buf.WriteString("            }\n")
+	buf.WriteString("        }\n")
+	buf.WriteString("    }\n")
+	buf.WriteString("}\n")
+	return buf.String()
+}
+
+func (e *Exporter) ToGoProgram(commands []string) string {
+	var buf strings.Builder
+	buf.WriteString("package main\n\n")
+	buf.WriteString("import (\n")
+	buf.WriteString("\t\"fmt\"\n")
+	buf.WriteString("\t\"os\"\n")
+	buf.WriteString("\t\"os/exec\"\n")
+	buf.WriteString(")\n\n")
+	buf.WriteString("func main() {\n")
+	buf.WriteString("\tcommands := []string{\n")
+	for _, cmd := range commands {
+		escaped := strings.ReplaceAll(cmd, "`", "\\`")
+		escaped = strings.ReplaceAll(escaped, "\"", "\\\"")
+		buf.WriteString(fmt.Sprintf("\t\t`%s`,\n", cmd))
+	}
+	buf.WriteString("\t}\n\n")
+	buf.WriteString("\tfor i, cmdStr := range commands {\n")
+	buf.WriteString("\t\tfmt.Printf(\"Executing command %d/%d: %s\\n\", i+1, len(commands), cmdStr)\n")
+	buf.WriteString("\t\tcmd := exec.Command(\"sh\", \"-c\", cmdStr)\n")
+	buf.WriteString("\t\tcmd.Stdout = os.Stdout\n")
+	buf.WriteString("\t\tcmd.Stderr = os.Stderr\n")
+	buf.WriteString("\t\tif err := cmd.Run(); err != nil {\n")
+	buf.WriteString("\t\t\tfmt.Fprintf(os.Stderr, \"Command failed: %v\\n\", err)\n")
+	buf.WriteString("\t\t\tos.Exit(1)\n")
+	buf.WriteString("\t\t}\n")
+	buf.WriteString("\t}\n")
+	buf.WriteString("}\n")
+	return buf.String()
+}
