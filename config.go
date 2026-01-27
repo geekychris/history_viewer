@@ -15,6 +15,31 @@ type Config struct {
 	OllamaModel       string        `json:"ollama_model"`
 	AutoRefreshSec    int           `json:"auto_refresh_seconds"`
 	HomeDir           string        `json:"home_dir"`
+	SessionHeuristics SessionHeuristics `json:"session_heuristics"`
+}
+
+// SessionHeuristics defines configurable parameters for session detection
+type SessionHeuristics struct {
+	// TimeoutMinutes: primary timeout - gap between commands to start new session
+	TimeoutMinutes int `json:"timeout_minutes"`
+	
+	// DirectoryChangeBreaksSession: whether changing to a completely different directory tree starts a new session
+	DirectoryChangeBreaksSession bool `json:"directory_change_breaks_session"`
+	
+	// CategoryChangeThreshold: if commands shift from one category to another for N consecutive commands, start new session
+	// Set to 0 to disable this heuristic
+	CategoryChangeThreshold int `json:"category_change_threshold"`
+	
+	// MinCommandsPerSession: minimum number of commands to constitute a session (prevents tiny sessions)
+	MinCommandsPerSession int `json:"min_commands_per_session"`
+	
+	// MaxSessionDuration: absolute maximum duration for a session in minutes, even without timeout gaps
+	// Set to 0 to disable this heuristic
+	MaxSessionDuration int `json:"max_session_duration_minutes"`
+	
+	// ShortBreakMinutes: a "short break" that doesn't end a session (e.g., coffee break)
+	// Only used if less than TimeoutMinutes. Commands within short break are same session.
+	ShortBreakMinutes int `json:"short_break_minutes"`
 }
 
 func LoadConfig() (*Config, error) {
@@ -31,6 +56,14 @@ func LoadConfig() (*Config, error) {
 		OllamaModel:    "llama3.3",
 		AutoRefreshSec: 30,
 		HomeDir:        homeDir,
+		SessionHeuristics: SessionHeuristics{
+			TimeoutMinutes:               30,
+			DirectoryChangeBreaksSession: false,
+			CategoryChangeThreshold:      0, // disabled by default
+			MinCommandsPerSession:        1,
+			MaxSessionDuration:           0, // disabled by default
+			ShortBreakMinutes:            5,
+		},
 	}
 
 	configPath := filepath.Join(homeDir, ".history_viewer.json")
@@ -45,6 +78,11 @@ func LoadConfig() (*Config, error) {
 			}
 			if fileConfig.SessionTimeout != 0 {
 				config.SessionTimeout = fileConfig.SessionTimeout * time.Minute
+			}
+			// Load session heuristics if provided
+			if fileConfig.SessionHeuristics.TimeoutMinutes != 0 {
+				config.SessionHeuristics = fileConfig.SessionHeuristics
+				config.SessionTimeout = time.Duration(fileConfig.SessionHeuristics.TimeoutMinutes) * time.Minute
 			}
 			if fileConfig.OllamaURL != "" {
 				config.OllamaURL = fileConfig.OllamaURL

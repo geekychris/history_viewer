@@ -1,16 +1,15 @@
 {
   "history_file": "~/.zsh_history",
   "port": 8080,
-  "session_timeout_minutes": 30,
   "ollama_url": "http://localhost:11434",
-  "ollama_model": "llama3",
+  "ollama_model": "llama3.3",
   "auto_refresh_seconds": 30,
   "home_dir": "~",
   "session_heuristics": {
-    "timeout_minutes": 30,
-    "directory_change_breaks_session": false,
+    "timeout_minutes": 45,
+    "directory_change_breaks_session": true,
     "category_change_threshold": 0,
-    "min_commands_per_session": 1,
+    "min_commands_per_session": 3,
     "max_session_duration_minutes": 0,
     "short_break_minutes": 5
   }

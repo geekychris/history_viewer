@@ -159,30 +159,72 @@ func (p *Parser) GroupIntoSessions(entries []HistoryEntry) []Session {
 	}
 	
 	dirSet := make(map[string]bool)
+	consecutiveCategoryChanges := 0
+	var lastCategory CommandCategory
 
 	for i, entry := range entries {
 		// Check if we should start a new session
 		if i > 0 {
+			shouldBreak := false
 			timeSinceLastCommand := entry.Timestamp.Sub(entries[i-1].Timestamp)
+			
+			// Heuristic 1: Timeout-based (primary)
 			if timeSinceLastCommand > p.config.SessionTimeout {
-				// Finalize current session
-				currentSession.EndTime = entries[i-1].Timestamp
-				currentSession.Duration = currentSession.EndTime.Sub(currentSession.StartTime)
-				currentSession.Directories = getUniqueDirectories(dirSet)
-				currentSession.Description = generateSessionDescription(&currentSession)
-				sessions = append(sessions, currentSession)
-				
-				// Start new session
-				currentSession = Session{
-					ID:         len(sessions) + 1,
-					StartTime:  entry.Timestamp,
-					Commands:   []HistoryEntry{},
-					Categories: make(map[CommandCategory]int),
+				shouldBreak = true
+			}
+			
+			// Heuristic 2: Directory change (if enabled)
+			if p.config.SessionHeuristics.DirectoryChangeBreaksSession && !shouldBreak {
+				if !isRelatedDirectory(entries[i-1].Directory, entry.Directory) {
+					shouldBreak = true
 				}
-				dirSet = make(map[string]bool)
+			}
+			
+			// Heuristic 3: Category change threshold
+			if p.config.SessionHeuristics.CategoryChangeThreshold > 0 && !shouldBreak {
+				if entry.Category != lastCategory && lastCategory != "" {
+					consecutiveCategoryChanges++
+					if consecutiveCategoryChanges >= p.config.SessionHeuristics.CategoryChangeThreshold {
+						shouldBreak = true
+					}
+				} else {
+					consecutiveCategoryChanges = 0
+				}
+			}
+			
+			// Heuristic 4: Maximum session duration
+			if p.config.SessionHeuristics.MaxSessionDuration > 0 && !shouldBreak {
+				sessionDuration := entry.Timestamp.Sub(currentSession.StartTime)
+				maxDuration := time.Duration(p.config.SessionHeuristics.MaxSessionDuration) * time.Minute
+				if sessionDuration > maxDuration {
+					shouldBreak = true
+				}
+			}
+			
+			if shouldBreak {
+				// Check minimum commands per session
+				if len(currentSession.Commands) >= p.config.SessionHeuristics.MinCommandsPerSession {
+					// Finalize current session
+					currentSession.EndTime = entries[i-1].Timestamp
+					currentSession.Duration = currentSession.EndTime.Sub(currentSession.StartTime)
+					currentSession.Directories = getUniqueDirectories(dirSet)
+					currentSession.Description = generateSessionDescription(&currentSession)
+					sessions = append(sessions, currentSession)
+					
+					// Start new session
+					currentSession = Session{
+						ID:         len(sessions) + 1,
+						StartTime:  entry.Timestamp,
+						Commands:   []HistoryEntry{},
+						Categories: make(map[CommandCategory]int),
+					}
+					dirSet = make(map[string]bool)
+					consecutiveCategoryChanges = 0
+				}
 			}
 		}
 		
+		lastCategory = entry.Category
 		entry.SessionID = currentSession.ID
 		currentSession.Commands = append(currentSession.Commands, entry)
 		currentSession.Categories[entry.Category]++
@@ -190,7 +232,7 @@ func (p *Parser) GroupIntoSessions(entries []HistoryEntry) []Session {
 	}
 	
 	// Don't forget the last session
-	if len(currentSession.Commands) > 0 {
+	if len(currentSession.Commands) >= p.config.SessionHeuristics.MinCommandsPerSession {
 		currentSession.EndTime = entries[len(entries)-1].Timestamp
 		currentSession.Duration = currentSession.EndTime.Sub(currentSession.StartTime)
 		currentSession.Directories = getUniqueDirectories(dirSet)
@@ -207,6 +249,31 @@ func getUniqueDirectories(dirSet map[string]bool) []string {
 		dirs = append(dirs, dir)
 	}
 	return dirs
+}
+
+// isRelatedDirectory checks if two directories are in the same tree
+// (one is a parent/child of the other, or they share a common parent)
+func isRelatedDirectory(dir1, dir2 string) bool {
+	if dir1 == dir2 {
+		return true
+	}
+	
+	// Check if one is a subdirectory of the other
+	if strings.HasPrefix(dir2, dir1+string(filepath.Separator)) {
+		return true
+	}
+	if strings.HasPrefix(dir1, dir2+string(filepath.Separator)) {
+		return true
+	}
+	
+	// Check if they share a common parent (same parent directory)
+	parent1 := filepath.Dir(dir1)
+	parent2 := filepath.Dir(dir2)
+	if parent1 == parent2 {
+		return true
+	}
+	
+	return false
 }
 
 func generateSessionDescription(session *Session) string {

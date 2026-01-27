@@ -50,6 +50,25 @@ h1 { font-size: 2.5em; margin-bottom: 10px; }
     color: #667eea;
     transform: translateY(-2px);
 }
+.settings-link {
+    position: absolute;
+    top: 30px;
+    right: 150px;
+    color: white;
+    text-decoration: none;
+    font-size: 0.9em;
+    padding: 8px 16px;
+    border: 2px solid white;
+    border-radius: 6px;
+    transition: all 0.3s;
+    cursor: pointer;
+    background: rgba(255,255,255,0.1);
+}
+.settings-link:hover {
+    background: white;
+    color: #667eea;
+    transform: translateY(-2px);
+}
 .controls {
     padding: 20px 30px;
     background: #f8f9fa;
@@ -523,6 +542,36 @@ input[type="date"]:focus, select:focus, .search-box:focus {
     color: #ffb733;
     transform: scale(1.2);
 }
+.settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 15px;
+    align-items: center;
+}
+.settings-description {
+    font-size: 0.85em;
+    color: #6c757d;
+    margin-top: 3px;
+}
+.settings-input {
+    width: 100%;
+    padding: 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 0.95em;
+}
+.settings-input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+.settings-section {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+.settings-section:last-child {
+    border-bottom: none;
+}
 </style>
 </head>
 <body>
@@ -530,6 +579,7 @@ input[type="date"]:focus, select:focus, .search-box:focus {
 <header>
 <h1>🔍 Zsh History Viewer</h1>
 <div class="subtitle">Intelligent command history analysis with AI</div>
+<a class="settings-link" onclick="openSettingsModal()">⚙️ Settings</a>
 <a class="about-link" onclick="openAboutModal()">About</a>
 </header>
 
@@ -689,6 +739,68 @@ Newest First
 <input type="hidden" id="metadataStars" value="0">
 </div>
 <button class="btn btn-primary" onclick="saveMetadata()">Save</button>
+</div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal">
+<div class="modal-content" style="max-width: 700px;">
+<div class="modal-header">
+<h2>⚙️ Settings</h2>
+<button class="close-btn" onclick="closeSettingsModal()">&times;</button>
+</div>
+<div style="max-height: 500px; overflow-y: auto; padding-right: 10px;">
+<div class="settings-section">
+<h3 style="margin-bottom: 15px; color: #333;">Session Heuristics</h3>
+<p style="color: #6c757d; font-size: 0.9em; margin-bottom: 20px;">
+Configure how commands are grouped into sessions. Changes require a page refresh to take effect.
+</p>
+<div class="settings-grid">
+<div>
+<label><strong>Timeout (minutes)</strong></label>
+<div class="settings-description">Minutes of inactivity before starting a new session</div>
+</div>
+<input type="number" id="setting-timeout-minutes" class="settings-input" min="1" max="1440" />
+
+<div>
+<label><strong>Directory Change Breaks Session</strong></label>
+<div class="settings-description">Start new session when changing to a different project directory</div>
+</div>
+<label style="display: flex; align-items: center; gap: 10px;">
+<input type="checkbox" id="setting-dir-change" style="width: auto;" />
+<span>Enabled</span>
+</label>
+
+<div>
+<label><strong>Category Change Threshold</strong></label>
+<div class="settings-description">Start new session after N commands of different category (0 = disabled)</div>
+</div>
+<input type="number" id="setting-category-threshold" class="settings-input" min="0" max="20" />
+
+<div>
+<label><strong>Min Commands Per Session</strong></label>
+<div class="settings-description">Minimum number of commands to constitute a session</div>
+</div>
+<input type="number" id="setting-min-commands" class="settings-input" min="1" max="50" />
+
+<div>
+<label><strong>Max Session Duration (minutes)</strong></label>
+<div class="settings-description">Maximum session length (0 = unlimited)</div>
+</div>
+<input type="number" id="setting-max-duration" class="settings-input" min="0" max="1440" />
+
+<div>
+<label><strong>Short Break (minutes)</strong></label>
+<div class="settings-description">Brief break that doesn't end session (not yet implemented)</div>
+</div>
+<input type="number" id="setting-short-break" class="settings-input" min="0" max="60" disabled />
+</div>
+</div>
+</div>
+<div style="display: flex; gap: 10px; margin-top: 20px;">
+<button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+<button class="btn btn-secondary" onclick="loadSettings()">🔄 Reset</button>
+</div>
 </div>
 </div>
 
@@ -1621,6 +1733,75 @@ function openAboutModal() {
 
 function closeAboutModal() {
     document.getElementById('aboutModal').style.display = 'none';
+}
+
+function openSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'block';
+    loadSettings();
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+async function loadSettings() {
+    try {
+        const response = await fetch('/api/config');
+        if (!response.ok) {
+            throw new Error('Failed to load config');
+        }
+        const config = await response.json();
+        
+        // Populate form fields
+        document.getElementById('setting-timeout-minutes').value = config.session_heuristics.timeout_minutes || 30;
+        document.getElementById('setting-dir-change').checked = config.session_heuristics.directory_change_breaks_session || false;
+        document.getElementById('setting-category-threshold').value = config.session_heuristics.category_change_threshold || 0;
+        document.getElementById('setting-min-commands').value = config.session_heuristics.min_commands_per_session || 1;
+        document.getElementById('setting-max-duration').value = config.session_heuristics.max_session_duration_minutes || 0;
+        document.getElementById('setting-short-break').value = config.session_heuristics.short_break_minutes || 5;
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        alert('Failed to load settings: ' + error.message);
+    }
+}
+
+async function saveSettings() {
+    try {
+        // Get current config first
+        const response = await fetch('/api/config');
+        if (!response.ok) {
+            throw new Error('Failed to load current config');
+        }
+        const config = await response.json();
+        
+        // Update session heuristics
+        config.session_heuristics = {
+            timeout_minutes: parseInt(document.getElementById('setting-timeout-minutes').value) || 30,
+            directory_change_breaks_session: document.getElementById('setting-dir-change').checked,
+            category_change_threshold: parseInt(document.getElementById('setting-category-threshold').value) || 0,
+            min_commands_per_session: parseInt(document.getElementById('setting-min-commands').value) || 1,
+            max_session_duration_minutes: parseInt(document.getElementById('setting-max-duration').value) || 0,
+            short_break_minutes: parseInt(document.getElementById('setting-short-break').value) || 5
+        };
+        
+        // Save config
+        const saveResponse = await fetch('/api/config', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(config)
+        });
+        
+        if (!saveResponse.ok) {
+            const error = await saveResponse.text();
+            throw new Error('Failed to save config: ' + error);
+        }
+        
+        alert('Settings saved successfully! Please refresh the page for changes to take effect.');
+        closeSettingsModal();
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        alert('Failed to save settings: ' + error.message);
+    }
 }
 
 async function saveNote() {
