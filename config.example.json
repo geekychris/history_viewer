@@ -1,0 +1,9 @@
+{
+  "history_file": "~/.zsh_history",
+  "port": 8080,
+  "session_timeout_minutes": 30,
+  "ollama_url": "http://localhost:11434",
+  "ollama_model": "llama3",
+  "auto_refresh_seconds": 30,
+  "home_dir": "~"
+}

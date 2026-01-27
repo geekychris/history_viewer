@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zsh History Viewer</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+}
+header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+}
+h1 { font-size: 2.5em; margin-bottom: 10px; }
+.subtitle { opacity: 0.9; font-size: 1.1em; }
+.controls {
+    padding: 20px 30px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.filter-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.filter-group label {
+    font-weight: 500;
+    color: #495057;
+}
+.search-box, input[type="date"], select {
+    padding: 10px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.95em;
+    transition: all 0.3s;
+}
+input[type="date"]:focus, select:focus, .search-box:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 500;
+}
+.btn-primary { background: #667eea; color: white; }
+.btn-primary:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+.btn-secondary { background: #6c757d; color: white; }
+.btn-secondary:hover { background: #5a6268; }
+.btn-success { background: #28a745; color: white; }
+.btn-success:hover { background: #218838; }
+.btn-icon {
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.stats {
+    padding: 20px 30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    background: #f8f9fa;
+}
+.stat-card {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.stat-value { font-size: 1.8em; font-weight: bold; color: #667eea; }
+.stat-label { color: #6c757d; margin-top: 5px; font-size: 0.9em; }
+.volume-chart-container {
+    padding: 20px 30px;
+    background: white;
+    position: relative;
+}
+#volumeChart {
+    max-height: 200px;
+}
+.chart-selection-overlay {
+    position: absolute;
+    background: rgba(102, 126, 234, 0.2);
+    border: 2px solid #667eea;
+    pointer-events: none;
+    display: none;
+}
+.content { padding: 30px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.session-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 4px solid #667eea;
+    transition: all 0.3s;
+}
+.session-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateX(5px);
+}
+.session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.session-title { font-size: 1.3em; font-weight: bold; color: #333; }
+.session-meta {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+.meta-item { display: flex; align-items: center; gap: 5px; color: #6c757d; font-size: 0.9em; }
+.command {
+    background: #2d2d2d;
+    color: #f8f8f2;
+    padding: 15px;
+    border-radius: 6px;
+    margin: 10px 0;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.85em;
+    overflow-x: auto;
+}
+.command-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 0.85em;
+    color: #888;
+    flex-wrap: wrap;
+}
+.command-text { white-space: pre-wrap; word-break: break-all; }
+.category-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75em;
+    font-weight: 500;
+    background: #667eea;
+    color: white;
+    margin: 2px;
+}
+.llm-panel {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 15px;
+}
+.llm-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+.llm-result {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    max-height: 500px;
+    overflow-y: auto;
+    line-height: 1.6;
+}
+.llm-result.plain-text {
+    white-space: pre-wrap;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.9em;
+}
+.llm-result h1 { font-size: 1.5em; margin-top: 15px; }
+.llm-result h2 { font-size: 1.3em; margin-top: 12px; }
+.llm-result h3 { font-size: 1.1em; margin-top: 10px; }
+.llm-result p { margin: 10px 0; line-height: 1.6; }
+.llm-result code {
+    background: #f4f4f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.9em;
+}
+.llm-result pre {
+    background: #2d2d2d;
+    color: #f8f8f2;
+    padding: 15px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 10px 0;
+}
+.llm-result pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+}
+.llm-result ul, .llm-result ol {
+    margin: 10px 0 10px 25px;
+}
+.llm-result li {
+    margin: 5px 0;
+    line-height: 1.6;
+}
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(102, 126, 234, 0.3);
+    border-radius: 50%;
+    border-top-color: #667eea;
+    animation: spin 1s ease-in-out infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.pattern-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+}
+.pattern-card {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 3px solid #667eea;
+}
+.pattern-command {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 0.9em;
+}
+.pattern-count { color: #667eea; font-size: 1.4em; font-weight: bold; }
+.co-occurrence { margin-top: 10px; font-size: 0.8em; color: #6c757d; }
+.empty-state { text-align: center; padding: 60px 20px; color: #6c757d; }
+.empty-state-icon { font-size: 4em; margin-bottom: 20px; }
+.export-dropdown { position: relative; display: inline-block; }
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: white;
+    min-width: 160px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    border-radius: 8px;
+    z-index: 1;
+    overflow: hidden;
+}
+.dropdown-content a {
+    color: #333;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    transition: background 0.2s;
+}
+.dropdown-content a:hover { background-color: #f1f1f1; }
+.export-dropdown:hover .dropdown-content { display: block; }
+.filters-row {
+    width: 100%;
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+<h1>🔍 Zsh History Viewer</h1>
+<div class="subtitle">Intelligent command history analysis with AI</div>
+</header>
+
+<div class="controls">
+<div class="filters-row">
+<div class="filter-group">
+<label>From:</label>
+<input type="date" id="startDate">
+</div>
+<div class="filter-group">
+<label>To:</label>
+<input type="date" id="endDate">
+</div>
+<div class="filter-group">
+<label>Category:</label>
+<select id="categoryFilter">
+<option value="all">All Categories</option>
+<option value="version-control">Version Control</option>
+<option value="build">Build</option>
+<option value="file-operations">File Operations</option>
+<option value="navigation">Navigation</option>
+<option value="dev-tools">Dev Tools</option>
+<option value="system-admin">System Admin</option>
+<option value="network">Network</option>
+<option value="containers">Containers</option>
+<option value="database">Database</option>
+<option value="editor">Editor</option>
+<option value="search">Search</option>
+<option value="package-manager">Package Manager</option>
+<option value="other">Other</option>
+</select>
+</div>
+<div class="filter-group">
+<label>Keyword:</label>
+<input type="text" class="search-box" id="keywordFilter" placeholder="Search sessions...">
+</div>
+<button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+<button class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+<button class="btn btn-secondary btn-icon" onclick="toggleSort()">
+<span id="sortIcon">🔽</span> <span id="sortLabel">Newest First</span>
+</button>
+<button class="btn btn-primary" onclick="refreshData()">🔄 Refresh</button>
+<div class="export-dropdown">
+<button class="btn btn-success">⬇️ Export</button>
+<div class="dropdown-content">
+<a href="#" onclick="exportData('json')">JSON</a>
+<a href="#" onclick="exportData('csv')">CSV</a>
+<a href="#" onclick="exportData('markdown')">Markdown</a>
+<a href="#" onclick="exportData('zsh')">Zsh History</a>
+</div>
+</div>
+</div>
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="volume-chart-container" id="chartContainer">
+<canvas id="volumeChart"></canvas>
+<div id="selectionOverlay" class="chart-selection-overlay"></div>
+</div>
+
+<div class="content">
+<div id="sessionsView" class="tab-content active"></div>
+</div>
+</div>
+
+<script>
+let sessions = [];
+let volumeData = [];
+let volumeChart = null;
+let currentSort = 'desc'; // default: newest first
+let filters = {
+    startDate: '',
+    endDate: '',
+    category: 'all',
+    keyword: ''
+};
+let dragStart = null;
+let dragEnd = null;
+let isDragging = false;
+let activeLLMPanels = new Set();
+
+marked.setOptions({
+    breaks: true,
+    gfm: true
+});
+
+async function fetchData() {
+    try {
+        // Build query parameters with proper names for backend
+        const params = new URLSearchParams();
+        params.append('sort', currentSort);
+        
+        if (filters.startDate) {
+            params.append('start_date', filters.startDate);
+        }
+        if (filters.endDate) {
+            params.append('end_date', filters.endDate);
+        }
+        if (filters.category && filters.category !== 'all') {
+            params.append('category', filters.category);
+        }
+        if (filters.keyword) {
+            params.append('keyword', filters.keyword);
+        }
+        
+        console.log('Fetching with filters:', params.toString());
+        
+        const [sessionsRes, statsRes, volumeRes] = await Promise.all([
+            fetch('/api/sessions?' + params.toString()),
+            fetch('/api/stats'),
+            fetch('/api/volume')
+        ]);
+        
+        sessions = await sessionsRes.json();
+        const stats = await statsRes.json();
+        volumeData = await volumeRes.json();
+        
+        console.log('Received sessions:', sessions.length);
+        
+        renderStats(stats);
+        renderVolumeChart();
+        
+        // Don't re-render sessions if LLM panels are open (would destroy results)
+        if (activeLLMPanels.size === 0) {
+            renderSessions();
+        } else {
+            console.log('Skipping session re-render, LLM panels active:', activeLLMPanels.size);
+        }
+    } catch (error) {
+        console.error('Error fetching data:', error);
+    }
+}
+
+async function refreshData() {
+    await fetch('/api/refresh');
+    await fetchData();
+}
+
+function renderStats(stats) {
+    const el = document.getElementById('stats');
+    const filtered = sessions.length;
+    const total = stats.total_sessions;
+    el.innerHTML = `
+        <div class="stat-card">
+            <div class="stat-value">${filtered}</div>
+            <div class="stat-label">Filtered Sessions</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${total}</div>
+            <div class="stat-label">Total Sessions</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${stats.total_commands}</div>
+            <div class="stat-label">Total Commands</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${new Date(stats.last_updated).toLocaleTimeString()}</div>
+            <div class="stat-label">Last Updated</div>
+        </div>
+    `;
+}
+
+function renderVolumeChart() {
+    const ctx = document.getElementById('volumeChart').getContext('2d');
+    
+    if (volumeChart) {
+        volumeChart.destroy();
+    }
+    
+    volumeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: volumeData.map(d => d.date),
+            datasets: [{
+                label: 'Commands per Day',
+                data: volumeData.map(d => d.count),
+                backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                borderColor: 'rgba(102, 126, 234, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onHover: (event, activeElements) => {
+                event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'crosshair';
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Command Volume Over Time (Click bar or drag to select date range)'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Commands: ${context.parsed.y}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                }
+            }
+        }
+    });
+    
+    // Add drag selection handlers
+    const canvas = document.getElementById('volumeChart');
+    const overlay = document.getElementById('selectionOverlay');
+    const container = document.getElementById('chartContainer');
+    
+    let dragStartX = 0;
+    
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const dataX = volumeChart.scales.x.getValueForPixel(x);
+        if (dataX >= 0 && dataX < volumeData.length) {
+            isDragging = true;
+            dragStart = Math.round(dataX);
+            dragEnd = dragStart;
+            dragStartX = e.clientX;
+            
+            // Position overlay
+            const containerRect = container.getBoundingClientRect();
+            overlay.style.left = (e.clientX - containerRect.left) + 'px';
+            overlay.style.top = '0';
+            overlay.style.width = '0';
+            overlay.style.height = canvas.offsetHeight + 'px';
+            overlay.style.display = 'block';
+        }
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const dataX = volumeChart.scales.x.getValueForPixel(x);
+        if (dataX >= 0 && dataX < volumeData.length) {
+            dragEnd = Math.round(dataX);
+            
+            // Update overlay
+            const containerRect = container.getBoundingClientRect();
+            const currentX = e.clientX - containerRect.left;
+            const startX = dragStartX - containerRect.left;
+            
+            if (currentX > startX) {
+                overlay.style.left = startX + 'px';
+                overlay.style.width = (currentX - startX) + 'px';
+            } else {
+                overlay.style.left = currentX + 'px';
+                overlay.style.width = (startX - currentX) + 'px';
+            }
+        }
+    });
+    
+    canvas.addEventListener('mouseup', (e) => {
+        overlay.style.display = 'none';
+        
+        if (!isDragging) {
+            // Simple click - select single date
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const dataX = volumeChart.scales.x.getValueForPixel(x);
+            if (dataX >= 0 && dataX < volumeData.length) {
+                const date = volumeData[Math.round(dataX)].date;
+                document.getElementById('startDate').value = date;
+                document.getElementById('endDate').value = date;
+                applyFilters();
+            }
+        } else {
+            // Drag selection - select range
+            isDragging = false;
+            if (dragStart !== null && dragEnd !== null) {
+                const start = Math.min(dragStart, dragEnd);
+                const end = Math.max(dragStart, dragEnd);
+                document.getElementById('startDate').value = volumeData[start].date;
+                document.getElementById('endDate').value = volumeData[end].date;
+                applyFilters();
+            }
+            dragStart = null;
+            dragEnd = null;
+        }
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+        overlay.style.display = 'none';
+        isDragging = false;
+        dragStart = null;
+        dragEnd = null;
+    });
+}
+
+function renderSessions() {
+    const container = document.getElementById('sessionsView');
+    if (sessions.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><h3>No sessions found</h3><p>Try adjusting your filters</p></div>';
+        return;
+    }
+    
+    container.innerHTML = sessions.map(session => `
+        <div class="session-card">
+            <div class="session-header">
+                <div class="session-title">Session #${session.id}: ${escapeHtml(session.description)}</div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn btn-secondary" onclick="toggleLLMPanel('session-${session.id}')">🤖 AI Analyze</button>
+                    <button class="btn btn-success" onclick="toggleExportPanel('session-${session.id}')">📥 Export</button>
+                </div>
+            </div>
+            <div class="session-meta">
+                <div class="meta-item">📅 ${new Date(session.start_time).toLocaleString()}</div>
+                <div class="meta-item">⏱️ ${formatDuration(session.duration)}</div>
+                <div class="meta-item">💻 ${session.commands.length} commands</div>
+                <div class="meta-item">📁 ${session.directories.length} directories</div>
+            </div>
+            <div>
+                ${Object.entries(session.categories || {}).map(([cat, count]) => 
+                    `<span class="category-badge">${cat}: ${count}</span>`
+                ).join(' ')}
+            </div>
+            <div id="llm-panel-session-${session.id}" style="display:none;">
+                <div class="llm-panel">
+                    <div style="margin-bottom:15px;">
+                        <button class="btn btn-primary" onclick="analyzeSession(${session.id}, 'explain')">Explain This Session</button>
+                    </div>
+                    <div style="border-top:1px solid #ddd; padding-top:15px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:500;">Or ask a custom question:</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="custom-prompt-${session.id}" placeholder="e.g., What files were modified? What was I debugging?" 
+                                   style="flex:1; padding:10px; border:2px solid #e0e0e0; border-radius:6px;" 
+                                   onkeypress="if(event.key==='Enter') analyzeSessionCustom(${session.id})" />
+                            <button class="btn btn-primary" onclick="analyzeSessionCustom(${session.id})">Ask</button>
+                        </div>
+                    </div>
+                    <div id="llm-result-session-${session.id}" style="margin-top:15px; min-height:50px;"></div>
+                </div>
+            </div>
+            <div id="export-panel-session-${session.id}" style="display:none;">
+                <div style="background:#e7f3ff; border:2px solid #667eea; border-radius:8px; padding:20px; margin-top:15px;">
+                    <h3 style="margin-bottom:10px;">Export Commands</h3>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="exportSessionAs(${session.id}, 'bash')">Bash Script</button>
+                        <button class="btn btn-primary" onclick="exportSessionAs(${session.id}, 'python')">Python Script</button>
+                        <button class="btn btn-primary" onclick="exportSessionAs(${session.id}, 'java')">Java Class</button>
+                        <button class="btn btn-primary" onclick="exportSessionAs(${session.id}, 'go')">Go Program</button>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:15px;">
+                ${session.commands.slice(0, 5).map(cmd => renderCommand(cmd)).join('')}
+                ${session.commands.length > 5 ? `
+                    <div style="text-align:center; margin-top:10px;">
+                        <button class="btn btn-secondary" onclick="showAllCommands(${session.id})">
+                            Show all ${session.commands.length} commands
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderCommand(cmd) {
+    return `
+        <div class="command">
+            <div class="command-header">
+                <span>${new Date(cmd.timestamp).toLocaleString()}</span>
+                <span>${escapeHtml(cmd.directory)}</span>
+                <span class="category-badge">${cmd.category}</span>
+            </div>
+            <div class="command-text">${escapeHtml(cmd.command)}</div>
+        </div>
+    `;
+}
+
+function formatDuration(nanoseconds) {
+    const seconds = Math.floor(nanoseconds / 1e9);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+    return `${seconds}s`;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function toggleLLMPanel(id) {
+    const panel = document.getElementById(`llm-panel-${id}`);
+    const exportPanel = document.getElementById(`export-panel-${id}`);
+    const isOpening = panel.style.display === 'none';
+    
+    panel.style.display = isOpening ? 'block' : 'none';
+    if (exportPanel) exportPanel.style.display = 'none';
+    
+    // Track active panels to prevent auto-refresh from destroying results
+    if (isOpening) {
+        activeLLMPanels.add(id);
+    } else {
+        activeLLMPanels.delete(id);
+    }
+}
+
+function toggleExportPanel(id) {
+    const panel = document.getElementById(`export-panel-${id}`);
+    const llmPanel = document.getElementById(`llm-panel-${id}`);
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    if (llmPanel) llmPanel.style.display = 'none';
+}
+
+async function analyzeSession(sessionId, action) {
+    console.log('analyzeSession called:', sessionId, action);
+    const resultEl = document.getElementById(`llm-result-session-${sessionId}`);
+    
+    if (!resultEl) {
+        console.error('Result element not found!');
+        return;
+    }
+    
+    console.log('Result element found:', resultEl);
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<div class="loading"></div> Analyzing with AI...';
+    
+    try {
+        console.log('Sending request to /api/llm/analyze');
+        const response = await fetch('/api/llm/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({session_id: sessionId, action})
+        });
+        
+        console.log('Response status:', response.status);
+        const data = await response.json();
+        console.log('Response data:', data);
+        
+        if (data.error) {
+            console.log('Error in response:', data.error);
+            resultEl.innerHTML = `<div class="llm-result" style="color:red; display:block !important;">${escapeHtml(data.error)}</div>`;
+        } else if (data.result) {
+            // Render as markdown for better readability
+            const markdownHtml = marked.parse(data.result);
+            console.log('Setting markdown result, length:', markdownHtml.length);
+            resultEl.innerHTML = `<div class="llm-result" style="display:block !important; background:white; padding:15px; border:2px solid #667eea; white-space:normal;">${markdownHtml}</div>`;
+            console.log('Result HTML set');
+        } else {
+            console.error('No result or error in response');
+            resultEl.innerHTML = `<div class="llm-result" style="color:red;">No response received</div>`;
+        }
+    } catch (error) {
+        console.error('Exception:', error);
+        resultEl.innerHTML = `<div class="llm-result" style="color:red;">Error: ${error.message}</div>`;
+    }
+}
+
+async function analyzeSessionCustom(sessionId) {
+    const promptInput = document.getElementById(`custom-prompt-${sessionId}`);
+    const prompt = promptInput.value.trim();
+    
+    if (!prompt) {
+        alert('Please enter a prompt');
+        return;
+    }
+    
+    const resultEl = document.getElementById(`llm-result-session-${sessionId}`);
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<div class="loading"></div> Processing...';
+    
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    
+    const commands = session.commands.map(cmd => cmd.command).join('\n');
+    const fullPrompt = `${prompt}\n\nCommands:\n${commands}`;
+    
+    try {
+        const response = await fetch('/api/llm/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                session_id: sessionId,
+                action: 'custom',
+                custom_prompt: fullPrompt
+            })
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+            resultEl.innerHTML = `<div class="llm-result" style="color:red;">${escapeHtml(data.error)}</div>`;
+        } else {
+            // Show as plain text with proper formatting (custom prompts)
+            const result = escapeHtml(data.result);
+            resultEl.innerHTML = `<div class="llm-result plain-text" style="display:block !important; background:white; padding:15px; border:2px solid #667eea;">${result}</div>`;
+            console.log('Custom LLM result displayed, length:', result.length);
+        }
+    } catch (error) {
+        resultEl.innerHTML = `<div class="llm-result" style="color:red;">Error: ${error.message}</div>`;
+    }
+}
+
+function applyFilters() {
+    filters.startDate = document.getElementById('startDate').value;
+    filters.endDate = document.getElementById('endDate').value;
+    filters.category = document.getElementById('categoryFilter').value;
+    filters.keyword = document.getElementById('keywordFilter').value;
+    
+    // Close all LLM panels when applying filters so sessions can re-render
+    activeLLMPanels.clear();
+    
+    fetchData();
+}
+
+function clearFilters() {
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+    document.getElementById('categoryFilter').value = 'all';
+    document.getElementById('keywordFilter').value = '';
+    filters = { startDate: '', endDate: '', category: 'all', keyword: '' };
+    
+    // Close all LLM panels when clearing filters
+    activeLLMPanels.clear();
+    
+    fetchData();
+}
+
+function toggleSort() {
+    currentSort = currentSort === 'desc' ? 'asc' : 'desc';
+    document.getElementById('sortIcon').textContent = currentSort === 'desc' ? '🔽' : '🔼';
+    document.getElementById('sortLabel').textContent = currentSort === 'desc' ? 'Newest First' : 'Oldest First';
+    
+    // Close all LLM panels when toggling sort
+    activeLLMPanels.clear();
+    
+    fetchData();
+}
+
+function exportData(format) {
+    const params = new URLSearchParams({
+        format,
+        ...filters
+    });
+    window.location.href = `/api/export?${params.toString()}`;
+}
+
+function showAllCommands(sessionId) {
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) {
+        console.error('Session not found:', sessionId);
+        return;
+    }
+    
+    // Find the button and its parent container
+    const sessionCard = document.querySelector(`[onclick*="showAllCommands(${sessionId})"]`).closest('.session-card');
+    const commandsContainer = sessionCard.querySelector('[style*="margin-top:15px"]');
+    
+    // Render all commands
+    const commandsHtml = session.commands.map(cmd => renderCommand(cmd)).join('');
+    commandsContainer.innerHTML = commandsHtml;
+}
+
+function exportSessionAs(sessionId, language) {
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    
+    const commands = session.commands.map(cmd => cmd.command);
+    let content, filename;
+    
+    switch(language) {
+        case 'bash':
+            content = generateBashScript(commands, session);
+            filename = `session_${sessionId}.sh`;
+            break;
+        case 'python':
+            content = generatePythonScript(commands, session);
+            filename = `session_${sessionId}.py`;
+            break;
+        case 'java':
+            content = generateJavaClass(commands, session);
+            filename = `Session${sessionId}.java`;
+            break;
+        case 'go':
+            content = generateGoProgram(commands, session);
+            filename = `session_${sessionId}.go`;
+            break;
+    }
+    
+    downloadFile(content, filename);
+}
+
+function generateBashScript(commands, session) {
+    return `#!/bin/bash
+# Generated from Session #${session.id}: ${session.description}
+# Date: ${new Date().toLocaleString()}
+
+set -e  # Exit on error
+
+${commands.map(cmd => `# ${new Date(session.start_time).toLocaleDateString()}
+${cmd}`).join('\n\n')}
+`;
+}
+
+function generatePythonScript(commands, session) {
+    return `#!/usr/bin/env python3
+"""
+Generated from Session #${session.id}: ${session.description}
+Date: ${new Date().toLocaleString()}
+"""
+
+import subprocess
+import sys
+
+def run_command(cmd):
+    """Execute a shell command and handle errors."""
+    try:
+        result = subprocess.run(cmd, shell=True, check=True, 
+                              capture_output=True, text=True)
+        print(result.stdout)
+        return result.returncode
+    except subprocess.CalledProcessError as e:
+        print(f"Error executing: {cmd}", file=sys.stderr)
+        print(e.stderr, file=sys.stderr)
+        return e.returncode
+
+if __name__ == "__main__":
+${commands.map(cmd => `    run_command(${JSON.stringify(cmd)})`).join('\n')}
+`;
+}
+
+function generateJavaClass(commands, session) {
+    return `import java.io.*;
+import java.util.*;
+
+/**
+ * Generated from Session #${session.id}: ${session.description}
+ * Date: ${new Date().toLocaleString()}
+ */
+public class Session${session.id} {
+    
+    public static void main(String[] args) {
+        List<String> commands = Arrays.asList(
+${commands.map(cmd => `            ${JSON.stringify(cmd)}`).join(',\n')}
+        );
+        
+        for (String cmd : commands) {
+            executeCommand(cmd);
+        }
+    }
+    
+    private static void executeCommand(String command) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("/bin/sh", "-c", command);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            
+            BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+            
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                System.err.println("Command failed with exit code " + exitCode);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+`;
+}
+
+function generateGoProgram(commands, session) {
+    return `package main
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+)
+
+// Generated from Session #${session.id}: ${session.description}
+// Date: ${new Date().toLocaleString()}
+
+func main() {
+	commands := []string{
+${commands.map(cmd => `		${JSON.stringify(cmd)},`).join('\n')}
+	}
+	
+	for _, cmd := range commands {
+		if err := executeCommand(cmd); err != nil {
+			fmt.Fprintf(os.Stderr, "Error executing command: %v\\n", err)
+		}
+	}
+}
+
+func executeCommand(command string) error {
+	cmd := exec.Command("/bin/sh", "-c", command)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+`;
+}
+
+function downloadFile(content, filename) {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+// Initialize
+fetchData();
+setInterval(fetchData, 30000); // Auto-refresh every 30 seconds
+</script>
+</body>
+</html>
