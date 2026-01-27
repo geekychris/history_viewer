@@ -58,12 +58,9 @@ jobs:
           name: history_viewer-darwin-${{ matrix.arch }}
           path: history_viewer-darwin-${{ matrix.arch }}.tar.gz
 
-  build-linux:
-    name: Build Linux
+  build-linux-amd64:
+    name: Build Linux (x86_64)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [amd64, arm64]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,61 +70,35 @@ jobs:
         with:
           go-version: '1.23'
 
-      - name: Install dependencies (amd64)
-        if: matrix.arch == 'amd64'
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libxcursor-dev \
-            libxrandr-dev \
-            libxinerama-dev \
-            libxi-dev \
-            libgl1-mesa-dev \
-            libxxf86vm-dev
-
-      - name: Install dependencies (arm64)
-        if: matrix.arch == 'arm64'
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y \
-            gcc-aarch64-linux-gnu \
-            g++-aarch64-linux-gnu \
-            libxcursor-dev:arm64 \
-            libxrandr-dev:arm64 \
-            libxinerama-dev:arm64 \
-            libxi-dev:arm64 \
-            libgl1-mesa-dev:arm64 \
-            libxxf86vm-dev:arm64
+          sudo apt-get install -y gcc libgl1-mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev
 
       - name: Download Go modules
         run: go mod download
 
-      - name: Build for Linux ${{ matrix.arch }}
+      - name: Build for Linux x86_64
         env:
           GOOS: linux
-          GOARCH: ${{ matrix.arch }}
+          GOARCH: amd64
           CGO_ENABLED: 1
         run: |
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            export CC=aarch64-linux-gnu-gcc
-            export CXX=aarch64-linux-gnu-g++
-          fi
-          go build -tags web -o history_viewer-linux-${{ matrix.arch }} .
+          go build -tags web -o history_viewer-linux-amd64 .
 
       - name: Create tarball
         run: |
-          tar -czf history_viewer-linux-${{ matrix.arch }}.tar.gz history_viewer-linux-${{ matrix.arch }}
+          tar -czf history_viewer-linux-amd64.tar.gz history_viewer-linux-amd64
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: history_viewer-linux-${{ matrix.arch }}
-          path: history_viewer-linux-${{ matrix.arch }}.tar.gz
+          name: history_viewer-linux-amd64
+          path: history_viewer-linux-amd64.tar.gz
 
   create-release:
     name: Create Release
-    needs: [build-macos, build-linux]
+    needs: [build-macos, build-linux-amd64]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -201,14 +172,6 @@ jobs:
             curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/history_viewer-linux-amd64.tar.gz
             tar -xzf history_viewer-linux-amd64.tar.gz
             sudo mv history_viewer-linux-amd64 /usr/local/bin/history_viewer
-            chmod +x /usr/local/bin/history_viewer
-            ```
-
-            #### Linux (ARM64)
-            ```bash
-            curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.VERSION }}/history_viewer-linux-arm64.tar.gz
-            tar -xzf history_viewer-linux-arm64.tar.gz
-            sudo mv history_viewer-linux-arm64 /usr/local/bin/history_viewer
             chmod +x /usr/local/bin/history_viewer
             ```
 
