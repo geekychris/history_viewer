@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -126,11 +125,6 @@ func SetCustomCategoryPatterns(patterns []struct {
 				category: CommandCategory(p.Category),
 				pattern:  compiled,
 			})
-			fmt.Printf("[DEBUG] Loaded custom pattern: category=%s pattern=%q\n", p.Category, p.Pattern)
-			fmt.Printf("[DEBUG] Testing against './history_viewer': %v\n", compiled.MatchString("./history_viewer"))
-			fmt.Printf("[DEBUG] Testing against './history_viewer &': %v\n", compiled.MatchString("./history_viewer &"))
-		} else {
-			fmt.Printf("[DEBUG] Failed to compile pattern %q: %v\n", p.Pattern, err)
 		}
 	}
 }

@@ -491,7 +491,7 @@ func (ui *NativeUI) showSessionExportDialog(session *Session) {
 		}, ui.window)
 		
 		ext := map[string]string{"bash": "sh", "python": "py", "java": "java", "go": "go"}
-		saveDialog.SetFileName(fmt.Sprintf("session_%s.%s", session.ID, ext[lang]))
+		saveDialog.SetFileName(fmt.Sprintf("session_%d.%s", session.ID, ext[lang]))
 		saveDialog.Show()
 		
 	}, ui.window)
