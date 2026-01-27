@@ -124,11 +124,9 @@ jobs:
       - name: Generate checksums
         run: |
           cd artifacts
-          for dir in */; do
-            cd "$dir"
-            sha256sum *.tar.gz > checksums.txt
-            cd ..
-          done
+          find . -name "*.tar.gz" -exec sha256sum {} \; | sed 's|\./[^/]*/||' > ../SHA256SUMS.txt
+          cd ..
+          cat SHA256SUMS.txt
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -139,7 +137,7 @@ jobs:
           prerelease: false
           files: |
             artifacts/*/*.tar.gz
-            artifacts/*/checksums.txt
+            SHA256SUMS.txt
           body: |
             ## Installation
 
