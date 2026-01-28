@@ -155,3 +155,15 @@ func GetBaseCommand(cmd string) string {
 	}
 	return cmd
 }
+
+// GetCategoryDisplayName converts a category to a friendly display name
+func GetCategoryDisplayName(cat CommandCategory) string {
+	// Convert dash-separated to Title Case
+	parts := strings.Split(string(cat), "-")
+	for i, part := range parts {
+		if len(part) > 0 {
+			parts[i] = strings.ToUpper(part[:1]) + part[1:]
+		}
+	}
+	return strings.Join(parts, " ")
+}

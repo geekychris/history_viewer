@@ -32,7 +32,8 @@ func NewParser(config *Config) *Parser {
 
 // Parse zsh history format: : <timestamp>:<duration>;<command>
 var historyLineRegex = regexp.MustCompile(`^:\s*(\d+):(\d+);(.*)$`)
-var cdRegex = regexp.MustCompile(`^\s*cd\s+(.+)$`)
+// Match cd command but stop at &&, ||, ;, or |
+var cdRegex = regexp.MustCompile(`^\s*cd\s+([^;&|]+)`)
 
 func (p *Parser) ParseHistory() ([]HistoryEntry, error) {
 	file, err := os.Open(p.config.HistoryFile)
@@ -288,30 +289,209 @@ func isRelatedDirectory(dir1, dir2 string) bool {
 	return false
 }
 
+// truncateDirectoryPath extracts a meaningful short directory name from a full path
+// Examples:
+//   /Users/chris/code/project/history_viewer -> history_viewer
+//   /Users/chris/code/project/src/components -> project/src/components
+//   /Users/chris -> ~
+func truncateDirectoryPath(fullPath, homeDir string) string {
+	// Replace home directory with ~
+	if fullPath == homeDir {
+		return "~"
+	}
+	
+	// Split into components
+	parts := strings.Split(filepath.Clean(fullPath), string(filepath.Separator))
+	if len(parts) == 0 {
+		return "."
+	}
+	
+	// Filter out empty parts and home directory components
+	filtered := []string{}
+	for _, p := range parts {
+		if p != "" {
+			filtered = append(filtered, p)
+		}
+	}
+	parts = filtered
+	
+	if len(parts) == 0 {
+		return "."
+	}
+	
+	// If this starts with home directory, remove those components
+	if strings.HasPrefix(fullPath, homeDir+string(filepath.Separator)) {
+		homeParts := strings.Split(filepath.Clean(homeDir), string(filepath.Separator))
+		homePartsFiltered := []string{}
+		for _, p := range homeParts {
+			if p != "" {
+				homePartsFiltered = append(homePartsFiltered, p)
+			}
+		}
+		// Remove home directory prefix from parts
+		if len(parts) > len(homePartsFiltered) {
+			parts = parts[len(homePartsFiltered):]
+		}
+	}
+	
+	// If we have just one component, return it
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	
+	// For paths like code/project, return just the leaf
+	if len(parts) == 2 {
+		return parts[len(parts)-1]
+	}
+	
+	// For paths like code/project/src, return last 2 segments: project/src
+	if len(parts) == 3 {
+		return filepath.Join(parts[len(parts)-2:]...)
+	}
+	
+	// For longer paths like code/project/src/components,
+	// return last 2 segments: src/components
+	if len(parts) == 4 {
+		return filepath.Join(parts[len(parts)-2:]...)
+	}
+	
+	// For very deep paths, return last 3 segments
+	return filepath.Join(parts[len(parts)-3:]...)
+}
+
+// extractTopActivities analyzes commands to identify primary activities
+// Returns a concise activity summary like "git build", "docker", "search", etc.
+func extractTopActivities(session *Session) string {
+	if len(session.Commands) == 0 {
+		return "work"
+	}
+	
+	// Count base commands (first word of each command)
+	cmdCounts := make(map[string]int)
+	for _, cmd := range session.Commands {
+		base := strings.ToLower(cmd.BaseCommand)
+		// Clean up base command (remove ./ prefix, etc.)
+		base = strings.TrimPrefix(base, "./")
+		if base != "" {
+			cmdCounts[base]++
+		}
+	}
+	
+	// Find top 2 commands
+	type cmdCount struct {
+		cmd   string
+		count int
+	}
+	var topCmds []cmdCount
+	for cmd, count := range cmdCounts {
+		topCmds = append(topCmds, cmdCount{cmd, count})
+	}
+	
+	// Sort by count (simple bubble sort for small lists)
+	for i := 0; i < len(topCmds); i++ {
+		for j := i + 1; j < len(topCmds); j++ {
+			if topCmds[j].count > topCmds[i].count {
+				topCmds[i], topCmds[j] = topCmds[j], topCmds[i]
+			}
+		}
+	}
+	
+	// Build activity string
+	if len(topCmds) == 0 {
+		return "work"
+	}
+	
+	// If one command dominates (>50%), use it alone
+	if topCmds[0].count > len(session.Commands)/2 {
+		return topCmds[0].cmd
+	}
+	
+	// If we have 2+ distinct activities with reasonable counts
+	if len(topCmds) > 1 && topCmds[1].count >= len(session.Commands)/5 {
+		return topCmds[0].cmd + " " + topCmds[1].cmd
+	}
+	
+	// Otherwise just return the top command
+	return topCmds[0].cmd
+}
+
+// findMostActiveDirectory returns the directory with the most commands
+func findMostActiveDirectory(session *Session) string {
+	if len(session.Directories) == 0 {
+		return ""
+	}
+	if len(session.Directories) == 1 {
+		return session.Directories[0]
+	}
+	
+	// Count commands per directory
+	dirCounts := make(map[string]int)
+	for _, cmd := range session.Commands {
+		dirCounts[cmd.Directory]++
+	}
+	
+	// Find most active
+	maxDir := session.Directories[0]
+	maxCount := 0
+	for dir, count := range dirCounts {
+		if count > maxCount {
+			maxCount = count
+			maxDir = dir
+		}
+	}
+	
+	return maxDir
+}
+
 func generateSessionDescription(session *Session) string {
 	if len(session.Commands) == 0 {
 		return "Empty session"
 	}
 	
-	// Find the most common category
-	var maxCategory CommandCategory
-	maxCount := 0
-	for cat, count := range session.Categories {
-		if count > maxCount {
-			maxCount = count
-			maxCategory = cat
+	// Get activities and directory
+	activities := extractTopActivities(session)
+	primaryDir := findMostActiveDirectory(session)
+	
+	// Truncate directory path
+	// We need to get home dir - use a reasonable default if not available
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		homeDir = "/Users/" + os.Getenv("USER")
+	}
+	shortDir := truncateDirectoryPath(primaryDir, homeDir)
+	
+	// Get primary categories
+	categoryStr := ""
+	if len(session.Categories) > 0 {
+		// Get top 2 categories by count
+		type catCount struct {
+			cat   CommandCategory
+			count int
+		}
+		var topCats []catCount
+		for cat, count := range session.Categories {
+			topCats = append(topCats, catCount{cat, count})
+		}
+		
+		// Sort by count
+		for i := 0; i < len(topCats); i++ {
+			for j := i + 1; j < len(topCats); j++ {
+				if topCats[j].count > topCats[i].count {
+					topCats[i], topCats[j] = topCats[j], topCats[i]
+				}
+			}
+		}
+		
+		// Take top 1-2 categories
+		if len(topCats) > 0 {
+			categoryStr = " [" + GetCategoryDisplayName(topCats[0].cat)
+			if len(topCats) > 1 && topCats[1].count >= len(session.Commands)/5 {
+				categoryStr += ", " + GetCategoryDisplayName(topCats[1].cat)
+			}
+			categoryStr += "]"
 		}
 	}
 	
-	// Generate a simple description
-	primaryDir := ""
-	if len(session.Directories) > 0 {
-		primaryDir = session.Directories[0]
-	}
-	
-	if maxCount > len(session.Commands)/2 {
-		return string(maxCategory) + " in " + primaryDir
-	}
-	
-	return "Mixed tasks in " + primaryDir
+	// Generate description: "shortDir: activities [categories]"
+	return shortDir + ": " + activities + categoryStr
 }
