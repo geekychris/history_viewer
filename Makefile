@@ -15,9 +15,14 @@ build-web:
 	go build -tags web -o $(BINARY) .
 
 # Build with native UI support
+# On macOS, suppress duplicate -lobjc library warnings from Fyne dependencies
 build-native: deps-check
 	@echo "Building with native UI support..."
-	go build -o $(BINARY) .
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		CGO_LDFLAGS="-Wl,-no_warn_duplicate_libraries" go build -o $(BINARY) .; \
+	else \
+		go build -o $(BINARY) .; \
+	fi
 
 # Clean build artifacts
 clean:

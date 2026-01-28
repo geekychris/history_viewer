@@ -591,6 +591,167 @@ input[type="date"]:focus, select:focus, .search-box:focus {
     font-size: 0.85em;
     color: #6c757d;
 }
+.command-search-section {
+    padding: 20px 30px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+.command-search-header {
+    font-size: 1.2em;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+}
+.command-search-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.command-search-results {
+    max-height: 400px;
+    overflow-y: auto;
+}
+.command-result-item {
+    background: white;
+    border-left: 4px solid #667eea;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: all 0.3s;
+}
+.command-result-item:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateX(5px);
+}
+.command-result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.command-result-text {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.9em;
+    color: #333;
+    background: #f8f9fa;
+    padding: 8px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+.command-result-meta {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+    font-size: 0.85em;
+    color: #6c757d;
+    flex-wrap: wrap;
+}
+.command-result-actions {
+    display: flex;
+    gap: 8px;
+}
+.btn-icon-small {
+    padding: 6px 12px;
+    font-size: 0.85em;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #667eea;
+    color: white;
+}
+.btn-icon-small:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+}
+.directory-tree-container {
+    max-height: 500px;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    background: white;
+    margin-bottom: 20px;
+}
+.directory-node {
+    padding: 8px 0;
+    border-left: 2px solid transparent;
+    transition: all 0.2s;
+}
+.directory-node:hover {
+    background: #f8f9fa;
+}
+.directory-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+.directory-header:hover {
+    background: #e9ecef;
+}
+.directory-toggle {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+    color: #667eea;
+    user-select: none;
+}
+.directory-icon {
+    font-size: 1.1em;
+}
+.directory-name {
+    font-weight: 500;
+    color: #333;
+    flex: 1;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.9em;
+}
+.directory-count {
+    background: #667eea;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75em;
+    font-weight: 600;
+}
+.directory-children {
+    margin-left: 24px;
+    border-left: 2px solid #e0e0e0;
+    padding-left: 12px;
+    display: none;
+}
+.directory-children.expanded {
+    display: block;
+}
+.directory-node.collapsed > .directory-children {
+    display: none;
+}
+.directory-node.expanded > .directory-children {
+    display: block;
+}
+.directory-node.leaf .directory-toggle {
+    visibility: hidden;
+}
+.directory-result-item {
+    background: white;
+    border-left: 4px solid #28a745;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: all 0.3s;
+}
+.directory-result-item:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateX(5px);
+}
 </style>
 </head>
 <body>
@@ -686,6 +847,30 @@ Newest First
 <div class="volume-chart-container" id="chartContainer">
 <canvas id="volumeChart"></canvas>
 <div id="selectionOverlay" class="chart-selection-overlay"></div>
+</div>
+
+<!-- Command Search Section -->
+<div class="command-search-section">
+<div class="command-search-header">🔎 Command Search</div>
+<div class="command-search-box">
+<input type="text" class="search-box" id="commandSearchInput" placeholder="Enter command (e.g., git, npm, docker)..." style="flex: 1;" onkeypress="if(event.key==='Enter') searchCommand()">
+<button class="btn btn-primary" onclick="searchCommand()">Search</button>
+<button class="btn btn-secondary" onclick="clearCommandSearch()">Clear</button>
+</div>
+<div id="commandSearchResults" class="command-search-results"></div>
+</div>
+
+<!-- Directory View Section -->
+<div class="command-search-section">
+<div class="command-search-header">📁 Directory Explorer</div>
+<div class="command-search-box">
+<input type="text" class="search-box" id="directoryPathInput" placeholder="Enter directory path (e.g., /Users/me/project)..." style="flex: 1;" onkeypress="if(event.key==='Enter') searchDirectory()">
+<button class="btn btn-primary" onclick="searchDirectory()">Search</button>
+<button class="btn btn-secondary" onclick="loadDirectoryTree()">Show Tree</button>
+<button class="btn btn-secondary" onclick="clearDirectorySearch()">Clear</button>
+</div>
+<div id="directoryTreeView" class="directory-tree-container" style="display: none;"></div>
+<div id="directorySearchResults" class="command-search-results"></div>
 </div>
 
 <div class="content">
@@ -938,6 +1123,7 @@ let dragStart = null;
 let dragEnd = null;
 let isDragging = false;
 let activeLLMPanels = new Set();
+let explainModalOpen = false;
 
 marked.setOptions({
     breaks: true,
@@ -945,6 +1131,12 @@ marked.setOptions({
 });
 
 async function fetchData() {
+    // Don't refresh if explain modal is open
+    if (explainModalOpen) {
+        console.log('Skipping refresh - explain modal is open');
+        return;
+    }
+    
     try {
         // Build query parameters with proper names for backend
         const params = new URLSearchParams();
@@ -2201,6 +2393,468 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 });
+
+// Command Search Functions
+let commandSearchResults = [];
+
+async function searchCommand() {
+    const input = document.getElementById('commandSearchInput');
+    const cmd = input.value.trim();
+    
+    if (!cmd) {
+        alert('Please enter a command to search');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/commands/search?cmd=${encodeURIComponent(cmd)}`);
+        if (!response.ok) {
+            throw new Error('Search failed');
+        }
+        
+        commandSearchResults = await response.json();
+        renderCommandSearchResults();
+    } catch (error) {
+        console.error('Error searching commands:', error);
+        alert('Failed to search commands: ' + error.message);
+    }
+}
+
+function renderCommandSearchResults() {
+    const container = document.getElementById('commandSearchResults');
+    
+    if (commandSearchResults.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:40px; color:#6c757d;">No results found</div>';
+        return;
+    }
+    
+    // Group results by base command
+    const grouped = {};
+    commandSearchResults.forEach(result => {
+        const baseCmd = result.base_command;
+        if (!grouped[baseCmd]) {
+            grouped[baseCmd] = [];
+        }
+        grouped[baseCmd].push(result);
+    });
+    
+    const commandGroups = Object.keys(grouped).sort();
+    const totalCommands = commandSearchResults.length;
+    
+    container.innerHTML = `
+        <div style="margin-bottom:15px; font-weight:600; color:#333;">
+            Found ${totalCommands} occurrence${totalCommands !== 1 ? 's' : ''} across ${commandGroups.length} command${commandGroups.length !== 1 ? 's' : ''}
+        </div>
+        ${commandGroups.map(baseCmd => {
+            const results = grouped[baseCmd];
+            const groupId = `cmd-group-${baseCmd.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            return `
+                <div style="margin-bottom:15px;">
+                    <div class="directory-header" onclick="toggleCommandGroup('${groupId}')" style="background:#f8f9fa; padding:12px; border-radius:8px; border-left:4px solid #667eea;">
+                        <span class="directory-toggle" id="toggle-${groupId}">▶</span>
+                        <span class="directory-icon">💻</span>
+                        <span class="directory-name" style="font-size:1.1em; font-weight:600;">${escapeHtml(baseCmd)}</span>
+                        <span class="directory-count">${results.length}</span>
+                    </div>
+                    <div id="${groupId}" class="directory-children" style="margin-left:24px; border-left:2px solid #e0e0e0; padding-left:12px;">
+                        ${results.map((result, index) => `
+                            <div class="command-result-item" style="margin-top:10px;">
+                                <div class="command-result-header">
+                                    <div style="font-weight:600; color:#667eea;">#${index + 1}</div>
+                                    <div class="command-result-actions">
+                                        <button class="btn-icon-small" onclick="copyCommandText('${escapeForJs(result.command)}')" title="Copy command">
+                                            📋 Copy
+                                        </button>
+                                        <button class="btn-icon-small btn-explain" data-command="${escapeHtml(result.command)}" title="Ask AI to explain">
+                                            🤖 Explain
+                                        </button>
+                                        <button class="btn-icon-small" onclick="scrollToSession(${result.session_id})" title="Go to session">
+                                            ➡️ Go to Session
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="command-result-text">${escapeHtml(result.command)}</div>
+                                <div class="command-result-meta">
+                                    <span>📅 ${new Date(result.timestamp).toLocaleString()}</span>
+                                    <span>📁 ${escapeHtml(result.directory)}</span>
+                                    <span>🏷️ ${escapeHtml(result.category)}</span>
+                                    <span style="cursor:pointer; color:#667eea;" onclick="scrollToSession(${result.session_id})">
+                                        📌 ${escapeHtml(result.session_description)}
+                                    </span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('')}
+    `;
+}
+
+function toggleCommandGroup(groupId) {
+    const group = document.getElementById(groupId);
+    const toggle = document.getElementById(`toggle-${groupId}`);
+    
+    if (group.classList.contains('expanded')) {
+        group.classList.remove('expanded');
+        toggle.textContent = '▶';
+    } else {
+        group.classList.add('expanded');
+        toggle.textContent = '▼';
+    }
+}
+
+function clearCommandSearch() {
+    document.getElementById('commandSearchInput').value = '';
+    document.getElementById('commandSearchResults').innerHTML = '';
+    commandSearchResults = [];
+}
+
+// Add event delegation for explain buttons
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('btn-explain') || e.target.closest('.btn-explain')) {
+        const btn = e.target.classList.contains('btn-explain') ? e.target : e.target.closest('.btn-explain');
+        const command = btn.getAttribute('data-command');
+        if (command) {
+            explainCommand(command);
+        }
+    }
+});
+
+function copyCommandText(command) {
+    // Unescape the command text
+    const textarea = document.createElement('textarea');
+    textarea.value = command;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    
+    alert('Command copied to clipboard!');
+}
+
+async function explainCommand(command) {
+    console.log('explainCommand called with:', command);
+    explainModalOpen = true;
+    
+    const resultDiv = document.createElement('div');
+    resultDiv.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:30px; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,0.3); max-width:800px; max-height:80vh; overflow-y:auto; z-index:10000;';
+    resultDiv.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 style="margin:0;">🤖 AI Explanation</h2>
+            <button id="closeExplainModal" style="border:none; background:none; font-size:24px; cursor:pointer;">&times;</button>
+        </div>
+        <div style="font-family:Monaco,monospace; background:#f8f9fa; padding:12px; border-radius:6px; margin-bottom:20px; word-break:break-all;">
+            ${escapeHtml(command)}
+        </div>
+        <div id="explainResult">Analyzing... <span class="loading"></span></div>
+    `;
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'modalOverlay';
+    overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999;';
+    
+    const closeModal = () => {
+        explainModalOpen = false;
+        resultDiv.remove();
+        overlay.remove();
+    };
+    
+    overlay.onclick = closeModal;
+    
+    document.body.appendChild(overlay);
+    document.body.appendChild(resultDiv);
+    
+    // Add close button handler
+    document.getElementById('closeExplainModal').onclick = closeModal;
+    
+    try {
+        console.log('Sending request to /api/llm/analyze');
+        
+        // Add timeout to fetch
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout
+        
+        const response = await fetch('/api/llm/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'custom',
+                custom_prompt: `Explain this command in detail: ${command}`
+            }),
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Response error:', errorText);
+            throw new Error(`AI analysis failed: ${response.status} ${errorText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Response data:', data);
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        if (!data.result) {
+            throw new Error('No result returned from AI');
+        }
+        
+        document.getElementById('explainResult').innerHTML = marked.parse(data.result);
+    } catch (error) {
+        console.error('explainCommand error:', error);
+        const resultEl = document.getElementById('explainResult');
+        if (resultEl) {
+            if (error.name === 'AbortError') {
+                resultEl.innerHTML = `<div style="color:#dc3545;">Request timed out after 120 seconds. The AI model may be too slow or unavailable. Consider using a faster model in settings.</div>`;
+            } else {
+                resultEl.innerHTML = `<div style="color:#dc3545;">Error: ${escapeHtml(error.message)}</div>`;
+            }
+        }
+    } finally {
+        explainModalOpen = false;
+    }
+}
+
+function scrollToSession(sessionId) {
+    // First, make sure we're showing sessions view
+    document.getElementById('sessionsView').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    
+    // Then try to scroll to the specific session card after a short delay
+    setTimeout(() => {
+        const sessionCards = document.querySelectorAll('.session-card');
+        for (let card of sessionCards) {
+            if (card.querySelector('.session-title').textContent.includes(`#${sessionId}:`)) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                card.style.backgroundColor = '#fffacd';
+                setTimeout(() => { card.style.backgroundColor = ''; }, 2000);
+                break;
+            }
+        }
+    }, 500);
+}
+
+function escapeForJs(text) {
+    return text.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+}
+
+// Directory View Functions
+let directoryTreeData = null;
+let directorySearchResults = [];
+
+async function loadDirectoryTree() {
+    try {
+        const response = await fetch('/api/directories');
+        if (!response.ok) {
+            throw new Error('Failed to load directory tree');
+        }
+        
+        directoryTreeData = await response.json();
+        renderDirectoryTree();
+    } catch (error) {
+        console.error('Error loading directory tree:', error);
+        alert('Failed to load directory tree: ' + error.message);
+    }
+}
+
+function renderDirectoryTree() {
+    const container = document.getElementById('directoryTreeView');
+    
+    if (!directoryTreeData || Object.keys(directoryTreeData.children || {}).length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:40px; color:#6c757d;">No directories found</div>';
+        container.style.display = 'block';
+        return;
+    }
+    
+    container.style.display = 'block';
+    container.innerHTML = renderDirectoryNode(directoryTreeData, true);
+}
+
+function renderDirectoryNode(node, isRoot = false) {
+    if (!node) return '';
+    
+    const hasChildren = node.children && Object.keys(node.children).length > 0;
+    const isLeaf = !hasChildren;
+    
+    let html = '';
+    
+    if (!isRoot) {
+        html += `
+            <div class="directory-node ${isLeaf ? 'leaf' : 'collapsed'}" data-path="${escapeHtml(node.path)}">
+                <div class="directory-header" onclick="toggleDirectory(this)">
+                    <span class="directory-toggle">${hasChildren ? '▶' : ''}</span>
+                    <span class="directory-icon">${hasChildren ? '📁' : '📄'}</span>
+                    <span class="directory-name" onclick="event.stopPropagation(); searchDirectoryByPath('${escapeForJs(node.path)}')" title="Click to view commands">
+                        ${escapeHtml(node.name)}
+                    </span>
+                    <span class="directory-count">${node.command_count}</span>
+                </div>
+        `;
+    }
+    
+    if (hasChildren) {
+        html += '<div class="directory-children">';
+        
+        // Sort children by name
+        const sortedChildren = Object.entries(node.children).sort((a, b) => 
+            a[0].localeCompare(b[0])
+        );
+        
+        for (const [_, child] of sortedChildren) {
+            html += renderDirectoryNode(child);
+        }
+        
+        html += '</div>';
+    }
+    
+    if (!isRoot) {
+        html += '</div>';
+    } else {
+        // For root, just render children
+        html = '<div class="directory-children expanded">';
+        const sortedChildren = Object.entries(node.children).sort((a, b) => 
+            a[0].localeCompare(b[0])
+        );
+        for (const [_, child] of sortedChildren) {
+            html += renderDirectoryNode(child);
+        }
+        html += '</div>';
+    }
+    
+    return html;
+}
+
+function toggleDirectory(headerElement) {
+    const node = headerElement.parentElement;
+    const isExpanded = node.classList.contains('expanded');
+    
+    if (isExpanded) {
+        node.classList.remove('expanded');
+        node.classList.add('collapsed');
+        headerElement.querySelector('.directory-toggle').textContent = '▶';
+    } else {
+        node.classList.remove('collapsed');
+        node.classList.add('expanded');
+        headerElement.querySelector('.directory-toggle').textContent = '▼';
+    }
+}
+
+async function searchDirectory() {
+    const input = document.getElementById('directoryPathInput');
+    const path = input.value.trim();
+    
+    if (!path) {
+        alert('Please enter a directory path');
+        return;
+    }
+    
+    await searchDirectoryByPath(path);
+}
+
+async function searchDirectoryByPath(path) {
+    try {
+        const response = await fetch(`/api/commands/by-directory?dir=${encodeURIComponent(path)}`);
+        if (!response.ok) {
+            throw new Error('Search failed');
+        }
+        
+        directorySearchResults = await response.json();
+        renderDirectorySearchResults(path);
+    } catch (error) {
+        console.error('Error searching directory:', error);
+        alert('Failed to search directory: ' + error.message);
+    }
+}
+
+function renderDirectorySearchResults(path) {
+    const container = document.getElementById('directorySearchResults');
+    
+    if (directorySearchResults.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:40px; color:#6c757d;">
+                No commands found in directory: <code>${escapeHtml(path)}</code>
+            </div>
+        `;
+        return;
+    }
+    
+    // Group results by base command
+    const grouped = {};
+    directorySearchResults.forEach(result => {
+        const baseCmd = result.base_command;
+        if (!grouped[baseCmd]) {
+            grouped[baseCmd] = [];
+        }
+        grouped[baseCmd].push(result);
+    });
+    
+    const commandGroups = Object.keys(grouped).sort();
+    const totalCommands = directorySearchResults.length;
+    
+    container.innerHTML = `
+        <div style="margin-bottom:15px; font-weight:600; color:#333;">
+            Found ${totalCommands} command${totalCommands !== 1 ? 's' : ''} across ${commandGroups.length} command${commandGroups.length !== 1 ? 's' : ''} in <code>${escapeHtml(path)}</code>
+        </div>
+        ${commandGroups.map(baseCmd => {
+            const results = grouped[baseCmd];
+            const groupId = `dir-group-${baseCmd.replace(/[^a-zA-Z0-9]/g, '_')}`;
+            return `
+                <div style="margin-bottom:15px;">
+                    <div class="directory-header" onclick="toggleCommandGroup('${groupId}')" style="background:#f8f9fa; padding:12px; border-radius:8px; border-left:4px solid #28a745;">
+                        <span class="directory-toggle" id="toggle-${groupId}">▶</span>
+                        <span class="directory-icon">💻</span>
+                        <span class="directory-name" style="font-size:1.1em; font-weight:600;">${escapeHtml(baseCmd)}</span>
+                        <span class="directory-count">${results.length}</span>
+                    </div>
+                    <div id="${groupId}" class="directory-children" style="margin-left:24px; border-left:2px solid #e0e0e0; padding-left:12px;">
+                        ${results.map((result, index) => `
+                            <div class="directory-result-item" style="margin-top:10px;">
+                                <div class="command-result-header">
+                                    <div style="font-weight:600; color:#28a745;">#${index + 1}</div>
+                                    <div class="command-result-actions">
+                                        <button class="btn-icon-small" onclick="copyCommandText('${escapeForJs(result.command)}')" title="Copy command">
+                                            📋 Copy
+                                        </button>
+                                        <button class="btn-icon-small btn-explain" data-command="${escapeHtml(result.command)}" title="Ask AI to explain">
+                                            🤖 Explain
+                                        </button>
+                                        <button class="btn-icon-small" onclick="scrollToSession(${result.session_id})" title="Go to session">
+                                            ➡️ Go to Session
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="command-result-text">${escapeHtml(result.command)}</div>
+                                <div class="command-result-meta">
+                                    <span>📅 ${new Date(result.timestamp).toLocaleString()}</span>
+                                    <span>📁 ${escapeHtml(result.directory)}</span>
+                                    <span>🏷️ ${escapeHtml(result.category)}</span>
+                                    <span style="cursor:pointer; color:#667eea;" onclick="scrollToSession(${result.session_id})">
+                                        📌 ${escapeHtml(result.session_description)}
+                                    </span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('')}
+    `;
+}
+
+function clearDirectorySearch() {
+    document.getElementById('directoryPathInput').value = '';
+    document.getElementById('directorySearchResults').innerHTML = '';
+    document.getElementById('directoryTreeView').innerHTML = '';
+    document.getElementById('directoryTreeView').style.display = 'none';
+    directorySearchResults = [];
+    directoryTreeData = null;
+}
 
 // Initialize
 fetchData();

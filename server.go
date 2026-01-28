@@ -67,6 +67,9 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/sessions", s.handleSessions)
 	http.HandleFunc("/api/sessions/", s.handleSessionDetail)
 	http.HandleFunc("/api/commands", s.handleCommands)
+	http.HandleFunc("/api/commands/search", s.handleCommandSearch)
+	http.HandleFunc("/api/directories", s.handleDirectories)
+	http.HandleFunc("/api/commands/by-directory", s.handleCommandsByDirectory)
 	http.HandleFunc("/api/search", s.handleSearch)
 	http.HandleFunc("/api/patterns", s.handlePatterns)
 	http.HandleFunc("/api/stats", s.handleStats)
@@ -364,6 +367,63 @@ func (s *Server) handleCommands(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(entries)
+}
+
+type CommandSearchResult struct {
+	Command       string    `json:"command"`
+	BaseCommand   string    `json:"base_command"`
+	Timestamp     time.Time `json:"timestamp"`
+	Directory     string    `json:"directory"`
+	Category      string    `json:"category"`
+	SessionID     int       `json:"session_id"`
+	SessionDesc   string    `json:"session_description"`
+	CommandID     int       `json:"command_id"`
+}
+
+func (s *Server) handleCommandSearch(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	baseCommand := r.URL.Query().Get("cmd")
+	if baseCommand == "" {
+		http.Error(w, "Query parameter 'cmd' required", http.StatusBadRequest)
+		return
+	}
+
+	baseCommand = strings.ToLower(strings.TrimSpace(baseCommand))
+	var results []CommandSearchResult
+
+	// Create session description lookup
+	sessionDescMap := make(map[int]string)
+	for _, session := range s.sessions {
+		sessionDescMap[session.ID] = session.Description
+	}
+
+	// Search through all entries
+	for _, entry := range s.entries {
+		// Match by base command
+		if strings.ToLower(entry.BaseCommand) == baseCommand {
+			result := CommandSearchResult{
+				Command:      entry.Command,
+				BaseCommand:  entry.BaseCommand,
+				Timestamp:    entry.Timestamp,
+				Directory:    entry.Directory,
+				Category:     string(entry.Category),
+				SessionID:    entry.SessionID,
+				SessionDesc:  sessionDescMap[entry.SessionID],
+				CommandID:    entry.ID,
+			}
+			results = append(results, result)
+		}
+	}
+
+	// Sort by timestamp descending (most recent first)
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Timestamp.After(results[j].Timestamp)
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
 }
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
@@ -725,7 +785,10 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLLMAnalyze(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[LLM] Received analyze request from %s", r.RemoteAddr)
+	
 	if r.Method != "POST" {
+		log.Printf("[LLM] Error: Invalid method %s", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -738,17 +801,24 @@ func (s *Server) handleLLMAnalyze(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[LLM] Error decoding request body: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+	
+	log.Printf("[LLM] Request parsed - Action: %s, SessionID: %d, CustomPrompt length: %d, Commands: %d",
+		req.Action, req.SessionID, len(req.CustomPrompt), len(req.Commands))
 
 	var result string
 	var err error
 
 	// Handle custom prompt
 	if req.CustomPrompt != "" {
+		log.Printf("[LLM] Using custom prompt (length: %d chars)", len(req.CustomPrompt))
+		log.Printf("[LLM] Prompt preview: %s...", truncateString(req.CustomPrompt, 100))
 		result, err = s.ollama.Generate(req.CustomPrompt)
 	} else if req.SessionID > 0 {
+		log.Printf("[LLM] Analyzing session %d", req.SessionID)
 		s.mu.RLock()
 		var session *Session
 		for i := range s.sessions {
@@ -760,19 +830,24 @@ func (s *Server) handleLLMAnalyze(w http.ResponseWriter, r *http.Request) {
 		s.mu.RUnlock()
 
 		if session == nil {
+			log.Printf("[LLM] Error: Session %d not found", req.SessionID)
 			http.Error(w, "Session not found", http.StatusNotFound)
 			return
 		}
 
+		log.Printf("[LLM] Found session with %d commands", len(session.Commands))
 		result, err = s.ollama.AnalyzeSession(req.Action, session)
 	} else if len(req.Commands) > 0 {
+		log.Printf("[LLM] Analyzing %d commands directly", len(req.Commands))
 		result, err = s.ollama.AnalyzeCommands(req.Action, req.Commands)
 	} else {
+		log.Printf("[LLM] Error: No prompt, session, or commands provided")
 		http.Error(w, "Either commands, session_id, or custom_prompt must be provided", http.StatusBadRequest)
 		return
 	}
 
 	if err != nil {
+		log.Printf("[LLM] Error from Ollama: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -781,12 +856,22 @@ func (s *Server) handleLLMAnalyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[LLM] Success! Generated response length: %d chars", len(result))
+	
 	response := map[string]string{
 		"result": result,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// Helper function to truncate strings for logging
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen]
 }
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
@@ -1150,4 +1235,135 @@ func (s *Server) AnalyzeSession(sessionID string, action string, customPrompt st
 	}
 
 	return s.ollama.AnalyzeSession(action, session)
+}
+
+// DirectoryNode represents a directory in the hierarchy
+type DirectoryNode struct {
+	Path         string                   `json:"path"`
+	Name         string                   `json:"name"`
+	CommandCount int                      `json:"command_count"`
+	Children     map[string]*DirectoryNode `json:"children,omitempty"`
+}
+
+func (s *Server) handleDirectories(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Build directory tree
+	root := &DirectoryNode{
+		Path:     "/",
+		Name:     "/",
+		Children: make(map[string]*DirectoryNode),
+	}
+
+	// Count commands per directory
+	dirCounts := make(map[string]int)
+	for _, entry := range s.entries {
+		dir := entry.Directory
+		if dir == "" {
+			continue
+		}
+		dirCounts[dir]++
+	}
+
+	// Build tree structure
+	for dir, count := range dirCounts {
+		parts := strings.Split(strings.Trim(dir, "/"), "/")
+		current := root
+
+		for i, part := range parts {
+			if part == "" {
+				continue
+			}
+
+			if current.Children == nil {
+				current.Children = make(map[string]*DirectoryNode)
+			}
+
+			if _, exists := current.Children[part]; !exists {
+				// Build full path
+				fullPath := "/" + strings.Join(parts[:i+1], "/")
+				current.Children[part] = &DirectoryNode{
+					Path:     fullPath,
+					Name:     part,
+					Children: make(map[string]*DirectoryNode),
+				}
+			}
+			current = current.Children[part]
+		}
+
+		// Set count at leaf
+		current.CommandCount = count
+	}
+
+	// Propagate counts upward
+	var propagateCounts func(*DirectoryNode) int
+	propagateCounts = func(node *DirectoryNode) int {
+		total := node.CommandCount
+		for _, child := range node.Children {
+			total += propagateCounts(child)
+		}
+		node.CommandCount = total
+		return total
+	}
+	propagateCounts(root)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(root)
+}
+
+type DirectoryCommandResult struct {
+	Command     string    `json:"command"`
+	BaseCommand string    `json:"base_command"`
+	Timestamp   time.Time `json:"timestamp"`
+	Directory   string    `json:"directory"`
+	Category    string    `json:"category"`
+	SessionID   int       `json:"session_id"`
+	CommandID   int       `json:"command_id"`
+	SessionDesc string    `json:"session_description"`
+}
+
+func (s *Server) handleCommandsByDirectory(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	directory := r.URL.Query().Get("dir")
+	if directory == "" {
+		http.Error(w, "Query parameter 'dir' required", http.StatusBadRequest)
+		return
+	}
+
+	// Create session description lookup
+	sessionDescMap := make(map[int]string)
+	for _, session := range s.sessions {
+		sessionDescMap[session.ID] = session.Description
+	}
+
+	var results []DirectoryCommandResult
+
+	// Match commands in the specified directory
+	for _, entry := range s.entries {
+		// Exact match or subdirectory match
+		if entry.Directory == directory || strings.HasPrefix(entry.Directory, directory+"/") {
+			result := DirectoryCommandResult{
+				Command:     entry.Command,
+				BaseCommand: entry.BaseCommand,
+				Timestamp:   entry.Timestamp,
+				Directory:   entry.Directory,
+				Category:    string(entry.Category),
+				SessionID:   entry.SessionID,
+				CommandID:   entry.ID,
+				SessionDesc: sessionDescMap[entry.SessionID],
+			}
+			results = append(results, result)
+		}
+	}
+
+	// Sort by timestamp descending (most recent first)
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Timestamp.After(results[j].Timestamp)
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
 }

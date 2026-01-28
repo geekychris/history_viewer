@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type OllamaClient struct {
@@ -49,6 +51,10 @@ func (c *OllamaClient) GeneratePrompt(action, commands string) string {
 }
 
 func (c *OllamaClient) Generate(prompt string) (string, error) {
+	log.Printf("[Ollama] Starting request to %s with model %s", c.baseURL, c.model)
+	log.Printf("[Ollama] Prompt length: %d chars", len(prompt))
+	log.Printf("[Ollama] Prompt preview: %s...", truncateForLog(prompt, 150))
+	
 	reqBody := OllamaRequest{
 		Model:  c.model,
 		Prompt: prompt,
@@ -57,44 +63,75 @@ func (c *OllamaClient) Generate(prompt string) (string, error) {
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
+		log.Printf("[Ollama] Error marshaling request: %v", err)
 		return "", err
 	}
-
+	
+	log.Printf("[Ollama] Sending POST request to %s/api/generate", c.baseURL)
+	startTime := time.Now()
+	
 	resp, err := http.Post(c.baseURL+"/api/generate", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
+		log.Printf("[Ollama] Connection error after %s: %v", time.Since(startTime), err)
 		return "", fmt.Errorf("failed to connect to Ollama: %w", err)
 	}
 	defer resp.Body.Close()
+	
+	log.Printf("[Ollama] Received response status %d after %s", resp.StatusCode, time.Since(startTime))
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[Ollama] Error response: status %d, body: %s", resp.StatusCode, string(body))
 		return "", fmt.Errorf("Ollama returned status %d: %s", resp.StatusCode, string(body))
 	}
 
+	log.Printf("[Ollama] Reading response body...")
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Printf("[Ollama] Error reading response body: %v", err)
 		return "", err
 	}
+	
+	log.Printf("[Ollama] Response body length: %d bytes", len(body))
 
 	// Ollama returns newline-delimited JSON, even with stream=false
 	// We need to parse each line and concatenate the responses
 	var fullResponse strings.Builder
 	lines := strings.Split(string(body), "\n")
+	log.Printf("[Ollama] Parsing %d response lines", len(lines))
 	
-	for _, line := range lines {
+	for i, line := range lines {
 		if line == "" {
 			continue
 		}
 		
 		var ollamaResp OllamaResponse
 		if err := json.Unmarshal([]byte(line), &ollamaResp); err != nil {
+			log.Printf("[Ollama] Error parsing line %d: %v", i, err)
+			log.Printf("[Ollama] Problematic line: %s", truncateForLog(line, 200))
 			return "", fmt.Errorf("failed to parse Ollama response: %w (body: %s)", err, line)
 		}
 		
 		fullResponse.WriteString(ollamaResp.Response)
+		if ollamaResp.Done {
+			log.Printf("[Ollama] Received 'done' marker at line %d", i)
+		}
 	}
+	
+	elapsed := time.Since(startTime)
+	resultLen := fullResponse.Len()
+	log.Printf("[Ollama] Success! Generated %d chars in %s", resultLen, elapsed)
+	log.Printf("[Ollama] Response preview: %s...", truncateForLog(fullResponse.String(), 150))
 
 	return strings.TrimSpace(fullResponse.String()), nil
+}
+
+// Helper function for logging
+func truncateForLog(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen]
 }
 
 func (c *OllamaClient) AnalyzeCommands(action string, commands []string) (string, error) {
