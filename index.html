@@ -592,31 +592,32 @@ input[type="date"]:focus, select:focus, .search-box:focus {
     color: #6c757d;
 }
 .command-search-section {
-    padding: 20px 30px;
+    padding: 12px 20px;
     background: #f8f9fa;
     border-bottom: 1px solid #dee2e6;
 }
 .command-search-header {
-    font-size: 1.2em;
+    font-size: 1.1em;
     font-weight: 600;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     color: #333;
+    padding: 8px 0;
 }
 .command-search-box {
     display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
+    gap: 8px;
+    margin-bottom: 12px;
 }
 .command-search-results {
-    max-height: 400px;
+    max-height: 300px;
     overflow-y: auto;
 }
 .command-result-item {
     background: white;
-    border-left: 4px solid #667eea;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 10px;
+    border-left: 3px solid #667eea;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
     transition: all 0.3s;
 }
 .command-result-item:hover {
@@ -627,22 +628,22 @@ input[type="date"]:focus, select:focus, .search-box:focus {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 }
 .command-result-text {
     font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-    font-size: 0.9em;
+    font-size: 0.85em;
     color: #333;
     background: #f8f9fa;
-    padding: 8px;
+    padding: 6px;
     border-radius: 4px;
     word-break: break-all;
 }
 .command-result-meta {
     display: flex;
-    gap: 15px;
-    margin-top: 10px;
-    font-size: 0.85em;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 0.8em;
     color: #6c757d;
     flex-wrap: wrap;
 }
@@ -651,10 +652,10 @@ input[type="date"]:focus, select:focus, .search-box:focus {
     gap: 8px;
 }
 .btn-icon-small {
-    padding: 6px 12px;
-    font-size: 0.85em;
+    padding: 4px 8px;
+    font-size: 0.8em;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
     transition: all 0.3s;
     background: #667eea;
@@ -665,17 +666,17 @@ input[type="date"]:focus, select:focus, .search-box:focus {
     transform: translateY(-2px);
 }
 .directory-tree-container {
-    max-height: 500px;
+    max-height: 300px;
     overflow-y: auto;
     overflow-x: auto;
     border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 15px;
+    border-radius: 6px;
+    padding: 8px;
     background: white;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 .directory-node {
-    padding: 8px 0;
+    padding: 2px 0;
     border-left: 2px solid transparent;
     transition: all 0.2s;
 }
@@ -685,47 +686,47 @@ input[type="date"]:focus, select:focus, .search-box:focus {
 .directory-header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     cursor: pointer;
-    padding: 6px 8px;
-    border-radius: 4px;
+    padding: 3px 6px;
+    border-radius: 3px;
     transition: all 0.2s;
 }
 .directory-header:hover {
     background: #e9ecef;
 }
 .directory-toggle {
-    width: 16px;
-    height: 16px;
+    width: 12px;
+    height: 12px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8em;
+    font-size: 0.7em;
     color: #667eea;
     user-select: none;
 }
 .directory-icon {
-    font-size: 1.1em;
+    font-size: 0.9em;
 }
 .directory-name {
     font-weight: 500;
     color: #333;
     flex: 1;
     font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-    font-size: 0.9em;
+    font-size: 0.8em;
 }
 .directory-count {
     background: #667eea;
     color: white;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.75em;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 0.7em;
     font-weight: 600;
 }
 .directory-children {
-    margin-left: 24px;
-    border-left: 2px solid #e0e0e0;
-    padding-left: 12px;
+    margin-left: 16px;
+    border-left: 1px solid #e0e0e0;
+    padding-left: 8px;
     display: none;
 }
 .directory-children.expanded {
@@ -742,10 +743,10 @@ input[type="date"]:focus, select:focus, .search-box:focus {
 }
 .directory-result-item {
     background: white;
-    border-left: 4px solid #28a745;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 10px;
+    border-left: 3px solid #28a745;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 8px;
     transition: all 0.3s;
 }
 .directory-result-item:hover {
@@ -850,8 +851,15 @@ Newest First
 </div>
 
 <!-- Command Search Section -->
-<div class="command-search-section">
-<div class="command-search-header">🔎 Command Search</div>
+<div class="command-search-section" style="border-bottom: 1px solid #dee2e6;">
+<div class="command-search-header" onclick="toggleSection('commandSearchSection')" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
+<div>
+<span id="commandSearchToggle" style="margin-right: 10px; font-size: 0.8em;">▶</span>
+<span>🔎 Command Search</span>
+</div>
+<span style="font-size: 0.85em; color: #6c757d; font-weight: normal;">Click to expand</span>
+</div>
+<div id="commandSearchSection" style="display: none;">
 <div class="command-search-box">
 <input type="text" class="search-box" id="commandSearchInput" placeholder="Enter command (e.g., git, npm, docker)..." style="flex: 1;" onkeypress="if(event.key==='Enter') searchCommand()">
 <button class="btn btn-primary" onclick="searchCommand()">Search</button>
@@ -859,10 +867,18 @@ Newest First
 </div>
 <div id="commandSearchResults" class="command-search-results"></div>
 </div>
+</div>
 
 <!-- Directory View Section -->
-<div class="command-search-section">
-<div class="command-search-header">📁 Directory Explorer</div>
+<div class="command-search-section" style="border-bottom: 1px solid #dee2e6;">
+<div class="command-search-header" onclick="toggleSection('directoryExplorerSection')" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
+<div>
+<span id="directoryExplorerToggle" style="margin-right: 10px; font-size: 0.8em;">▶</span>
+<span>📁 Directory Explorer</span>
+</div>
+<span style="font-size: 0.85em; color: #6c757d; font-weight: normal;">Click to expand</span>
+</div>
+<div id="directoryExplorerSection" style="display: none;">
 <div class="command-search-box">
 <input type="text" class="search-box" id="directoryPathInput" placeholder="Enter directory path (e.g., /Users/me/project)..." style="flex: 1;" onkeypress="if(event.key==='Enter') searchDirectory()">
 <button class="btn btn-primary" onclick="searchDirectory()">Search</button>
@@ -871,6 +887,7 @@ Newest First
 </div>
 <div id="directoryTreeView" class="directory-tree-container" style="display: none;"></div>
 <div id="directorySearchResults" class="command-search-results"></div>
+</div>
 </div>
 
 <div class="content">
@@ -2442,23 +2459,23 @@ function renderCommandSearchResults() {
     const totalCommands = commandSearchResults.length;
     
     container.innerHTML = `
-        <div style="margin-bottom:15px; font-weight:600; color:#333;">
+        <div style="margin-bottom:8px; font-weight:600; color:#333; font-size:0.9em; padding:4px 0;">
             Found ${totalCommands} occurrence${totalCommands !== 1 ? 's' : ''} across ${commandGroups.length} command${commandGroups.length !== 1 ? 's' : ''}
         </div>
         ${commandGroups.map(baseCmd => {
             const results = grouped[baseCmd];
             const groupId = `cmd-group-${baseCmd.replace(/[^a-zA-Z0-9]/g, '_')}`;
             return `
-                <div style="margin-bottom:15px;">
-                    <div class="directory-header" onclick="toggleCommandGroup('${groupId}')" style="background:#f8f9fa; padding:12px; border-radius:8px; border-left:4px solid #667eea;">
+                <div style="margin-bottom:8px;">
+                    <div class="directory-header" onclick="toggleCommandGroup('${groupId}')" style="background:#f8f9fa; padding:6px 10px; border-radius:6px; border-left:3px solid #667eea;">
                         <span class="directory-toggle" id="toggle-${groupId}">▶</span>
                         <span class="directory-icon">💻</span>
-                        <span class="directory-name" style="font-size:1.1em; font-weight:600;">${escapeHtml(baseCmd)}</span>
+                        <span class="directory-name" style="font-size:0.95em; font-weight:600;">${escapeHtml(baseCmd)}</span>
                         <span class="directory-count">${results.length}</span>
                     </div>
-                    <div id="${groupId}" class="directory-children" style="margin-left:24px; border-left:2px solid #e0e0e0; padding-left:12px;">
+                    <div id="${groupId}" class="directory-children" style="margin-left:16px; border-left:1px solid #e0e0e0; padding-left:8px;">
                         ${results.map((result, index) => `
-                            <div class="command-result-item" style="margin-top:10px;">
+                            <div class="command-result-item" style="margin-top:6px;">
                                 <div class="command-result-header">
                                     <div style="font-weight:600; color:#667eea;">#${index + 1}</div>
                                     <div class="command-result-actions">
@@ -2798,23 +2815,23 @@ function renderDirectorySearchResults(path) {
     const totalCommands = directorySearchResults.length;
     
     container.innerHTML = `
-        <div style="margin-bottom:15px; font-weight:600; color:#333;">
-            Found ${totalCommands} command${totalCommands !== 1 ? 's' : ''} across ${commandGroups.length} command${commandGroups.length !== 1 ? 's' : ''} in <code>${escapeHtml(path)}</code>
+        <div style="margin-bottom:8px; font-weight:600; color:#333; font-size:0.9em; padding:4px 0;">
+            Found ${totalCommands} command${totalCommands !== 1 ? 's' : ''} across ${commandGroups.length} command${commandGroups.length !== 1 ? 's' : ''} in <code style="font-size:0.85em;">${escapeHtml(path)}</code>
         </div>
         ${commandGroups.map(baseCmd => {
             const results = grouped[baseCmd];
             const groupId = `dir-group-${baseCmd.replace(/[^a-zA-Z0-9]/g, '_')}`;
             return `
-                <div style="margin-bottom:15px;">
-                    <div class="directory-header" onclick="toggleCommandGroup('${groupId}')" style="background:#f8f9fa; padding:12px; border-radius:8px; border-left:4px solid #28a745;">
+                <div style="margin-bottom:8px;">
+                    <div class="directory-header" onclick="toggleCommandGroup('${groupId}')" style="background:#f8f9fa; padding:6px 10px; border-radius:6px; border-left:3px solid #28a745;">
                         <span class="directory-toggle" id="toggle-${groupId}">▶</span>
                         <span class="directory-icon">💻</span>
-                        <span class="directory-name" style="font-size:1.1em; font-weight:600;">${escapeHtml(baseCmd)}</span>
+                        <span class="directory-name" style="font-size:0.95em; font-weight:600;">${escapeHtml(baseCmd)}</span>
                         <span class="directory-count">${results.length}</span>
                     </div>
-                    <div id="${groupId}" class="directory-children" style="margin-left:24px; border-left:2px solid #e0e0e0; padding-left:12px;">
+                    <div id="${groupId}" class="directory-children" style="margin-left:16px; border-left:1px solid #e0e0e0; padding-left:8px;">
                         ${results.map((result, index) => `
-                            <div class="directory-result-item" style="margin-top:10px;">
+                            <div class="directory-result-item" style="margin-top:6px;">
                                 <div class="command-result-header">
                                     <div style="font-weight:600; color:#28a745;">#${index + 1}</div>
                                     <div class="command-result-actions">
@@ -2854,6 +2871,19 @@ function clearDirectorySearch() {
     document.getElementById('directoryTreeView').style.display = 'none';
     directorySearchResults = [];
     directoryTreeData = null;
+}
+
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    const toggleIcon = document.getElementById(sectionId.replace('Section', 'Toggle'));
+    
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        toggleIcon.textContent = '▼';
+    } else {
+        section.style.display = 'none';
+        toggleIcon.textContent = '▶';
+    }
 }
 
 // Initialize
