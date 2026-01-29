@@ -63,23 +63,24 @@ type HistoryEntry struct {
 	Directory      string          `json:"directory"`
 	Category       CommandCategory `json:"category"`
 	BaseCommand    string          `json:"base_command"`
-	SessionID      int             `json:"session_id"`
+	SessionID      string          `json:"session_id"` // Changed from int to string for stable IDs
 	Notes          []Note          `json:"notes,omitempty"`
 	Tags           []Tag           `json:"tags,omitempty"`
 }
 
 type Session struct {
-	ID           int              `json:"id"`
-	StartTime    time.Time        `json:"start_time"`
-	EndTime      time.Time        `json:"end_time"`
-	Duration     time.Duration    `json:"duration"`
-	Commands     []HistoryEntry   `json:"commands"`
-	Directories  []string         `json:"directories"`
-	Categories   map[CommandCategory]int `json:"categories"`
-	Description  string           `json:"description"`
-	Notes        []Note           `json:"notes,omitempty"`
-	Tags         []Tag            `json:"tags,omitempty"`
-	Metadata     *SessionMetadata `json:"metadata,omitempty"` // Color and star rating
+	ID             string           `json:"id"`              // Stable hash-based ID (e.g., "sess_abc123")
+	SequenceNumber int              `json:"sequence_number"` // Display number (e.g., 5 for "Session #5")
+	StartTime      time.Time        `json:"start_time"`
+	EndTime        time.Time        `json:"end_time"`
+	Duration       time.Duration    `json:"duration"`
+	Commands       []HistoryEntry   `json:"commands"`
+	Directories    []string         `json:"directories"`
+	Categories     map[CommandCategory]int `json:"categories"`
+	Description    string           `json:"description"`
+	Notes          []Note           `json:"notes,omitempty"`
+	Tags           []Tag            `json:"tags,omitempty"`
+	Metadata       *SessionMetadata `json:"metadata,omitempty"` // Color and star rating
 }
 
 type CommandPattern struct {

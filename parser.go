@@ -158,17 +158,18 @@ func (p *Parser) resolveDirectory(currentDir, newDir string) string {
 	return filepath.Clean(filepath.Join(currentDir, newDir))
 }
 
-func (p *Parser) GroupIntoSessions(entries []HistoryEntry) []Session {
+func (p *Parser) GroupIntoSessions(entries []HistoryEntry, sessionIndex *SessionIndex) []Session {
 	if len(entries) == 0 {
 		return []Session{}
 	}
 
 	sessions := []Session{}
 	currentSession := Session{
-		ID:         1,
-		StartTime:  entries[0].Timestamp,
-		Commands:   []HistoryEntry{},
-		Categories: make(map[CommandCategory]int),
+		ID:             "", // Will be set when session is finalized
+		SequenceNumber: 1,
+		StartTime:      entries[0].Timestamp,
+		Commands:       []HistoryEntry{},
+		Categories:     make(map[CommandCategory]int),
 	}
 	
 	dirSet := make(map[string]bool)
@@ -222,14 +223,40 @@ func (p *Parser) GroupIntoSessions(entries []HistoryEntry) []Session {
 					currentSession.Duration = currentSession.EndTime.Sub(currentSession.StartTime)
 					currentSession.Directories = getUniqueDirectories(dirSet)
 					currentSession.Description = generateSessionDescription(&currentSession)
+					
+					// Generate stable ID from first command
+					firstCmd := currentSession.Commands[0]
+					stableID := sessionIndex.GetOrCreate(
+						currentSession.StartTime,
+						currentSession.EndTime,
+						firstCmd.Command,
+						currentSession.Description,
+					)
+					currentSession.ID = stableID
+					currentSession.SequenceNumber = sessionIndex.GetSequenceNumber(stableID)
+					
+					// Update all commands in this session with the stable ID
+					// Need to update both the session copy and the original entries slice
+					for j := range currentSession.Commands {
+						currentSession.Commands[j].SessionID = stableID
+						// Also update the original entry in the entries slice
+						for k := range entries {
+							if entries[k].ID == currentSession.Commands[j].ID {
+								entries[k].SessionID = stableID
+								break
+							}
+						}
+					}
+					
 					sessions = append(sessions, currentSession)
 					
 					// Start new session
 					currentSession = Session{
-						ID:         len(sessions) + 1,
-						StartTime:  entry.Timestamp,
-						Commands:   []HistoryEntry{},
-						Categories: make(map[CommandCategory]int),
+						ID:             "",
+						SequenceNumber: len(sessions) + 1,
+						StartTime:      entry.Timestamp,
+						Commands:       []HistoryEntry{},
+						Categories:     make(map[CommandCategory]int),
 					}
 					dirSet = make(map[string]bool)
 					consecutiveCategoryChanges = 0
@@ -237,11 +264,11 @@ func (p *Parser) GroupIntoSessions(entries []HistoryEntry) []Session {
 			}
 		}
 		
-		lastCategory = entry.Category
-		entry.SessionID = currentSession.ID
-		currentSession.Commands = append(currentSession.Commands, entry)
-		currentSession.Categories[entry.Category]++
-		dirSet[entry.Directory] = true
+	lastCategory = entry.Category
+	// Don't set SessionID yet - will be set when session is finalized
+	currentSession.Commands = append(currentSession.Commands, entry)
+	currentSession.Categories[entry.Category]++
+	dirSet[entry.Directory] = true
 	}
 	
 	// Don't forget the last session
@@ -250,7 +277,38 @@ func (p *Parser) GroupIntoSessions(entries []HistoryEntry) []Session {
 		currentSession.Duration = currentSession.EndTime.Sub(currentSession.StartTime)
 		currentSession.Directories = getUniqueDirectories(dirSet)
 		currentSession.Description = generateSessionDescription(&currentSession)
+		
+		// Generate stable ID from first command
+		firstCmd := currentSession.Commands[0]
+		stableID := sessionIndex.GetOrCreate(
+			currentSession.StartTime,
+			currentSession.EndTime,
+			firstCmd.Command,
+			currentSession.Description,
+		)
+		currentSession.ID = stableID
+		currentSession.SequenceNumber = sessionIndex.GetSequenceNumber(stableID)
+		
+		// Update all commands in this session with the stable ID
+		// Need to update both the session copy and the original entries slice
+		for j := range currentSession.Commands {
+			currentSession.Commands[j].SessionID = stableID
+			// Also update the original entry in the entries slice
+			for k := range entries {
+				if entries[k].ID == currentSession.Commands[j].ID {
+					entries[k].SessionID = stableID
+					break
+				}
+			}
+		}
+		
 		sessions = append(sessions, currentSession)
+	}
+
+	// Reassign sequence numbers to ensure they're in chronological order
+	sessionIndex.ReassignSequenceNumbers()
+	for i := range sessions {
+		sessions[i].SequenceNumber = sessionIndex.GetSequenceNumber(sessions[i].ID)
 	}
 
 	return sessions

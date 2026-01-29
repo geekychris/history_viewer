@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,6 +20,7 @@ type Server struct {
 	ollama       *OllamaClient
 	exporter     *Exporter
 	metadata     *MetadataStore
+	sessionIndex *SessionIndex
 	sessions     []Session
 	entries      []HistoryEntry
 	lastModTime  time.Time
@@ -31,12 +33,19 @@ func NewServer(config *Config) *Server {
 		log.Printf("Warning: Failed to load metadata: %v", err)
 	}
 	
+	configDir := filepath.Join(config.HomeDir, ".config", "history_viewer")
+	sessionIndex, err := NewSessionIndex(configDir)
+	if err != nil {
+		log.Printf("Warning: Failed to load session index: %v", err)
+	}
+	
 	return &Server{
-		config:   config,
-		parser:   NewParser(config),
-		ollama:   NewOllamaClient(config.OllamaURL, config.OllamaModel),
-		exporter: NewExporter(),
-		metadata: metadata,
+		config:       config,
+		parser:       NewParser(config),
+		ollama:       NewOllamaClient(config.OllamaURL, config.OllamaModel),
+		exporter:     NewExporter(),
+		metadata:     metadata,
+		sessionIndex: sessionIndex,
 	}
 }
 
@@ -50,8 +59,15 @@ func (s *Server) refreshData() error {
 	}
 
 	s.entries = entries
-	s.sessions = s.parser.GroupIntoSessions(entries)
+	s.sessions = s.parser.GroupIntoSessions(entries, s.sessionIndex)
 	s.lastModTime = time.Now()
+	
+	// Save session index after grouping
+	if s.sessionIndex != nil {
+		if err := s.sessionIndex.Save(); err != nil {
+			log.Printf("Warning: Failed to save session index: %v", err)
+		}
+	}
 
 	return nil
 }
@@ -332,8 +348,8 @@ func (s *Server) handleSessionDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, err := strconv.Atoi(pathParts[0])
-	if err != nil {
+	sessionID := pathParts[0]
+	if sessionID == "" {
 		http.Error(w, "Invalid session ID", http.StatusBadRequest)
 		return
 	}
@@ -375,7 +391,7 @@ type CommandSearchResult struct {
 	Timestamp     time.Time `json:"timestamp"`
 	Directory     string    `json:"directory"`
 	Category      string    `json:"category"`
-	SessionID     int       `json:"session_id"`
+	SessionID     string    `json:"session_id"` // Changed from int to string
 	SessionDesc   string    `json:"session_description"`
 	CommandID     int       `json:"command_id"`
 }
@@ -394,7 +410,7 @@ func (s *Server) handleCommandSearch(w http.ResponseWriter, r *http.Request) {
 	var results []CommandSearchResult
 
 	// Create session description lookup
-	sessionDescMap := make(map[int]string)
+	sessionDescMap := make(map[string]string)
 	for _, session := range s.sessions {
 		sessionDescMap[session.ID] = session.Description
 	}
@@ -581,13 +597,11 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	var sessions []Session
 	if sessionIDStr != "" {
 		// Export specific session
-		sessionID, err := strconv.Atoi(sessionIDStr)
-		if err == nil {
-			for _, session := range s.sessions {
-				if session.ID == sessionID {
-					sessions = []Session{session}
-					break
-				}
+		sessionID := sessionIDStr
+		for _, session := range s.sessions {
+			if session.ID == sessionID {
+				sessions = []Session{session}
+				break
 			}
 		}
 	} else {
@@ -796,7 +810,7 @@ func (s *Server) handleLLMAnalyze(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Action       string   `json:"action"`
 		Commands     []string `json:"commands"`
-		SessionID    int      `json:"session_id"`
+		SessionID    string   `json:"session_id"` // Changed from int to string
 		CustomPrompt string   `json:"custom_prompt"`
 	}
 
@@ -806,7 +820,7 @@ func (s *Server) handleLLMAnalyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	log.Printf("[LLM] Request parsed - Action: %s, SessionID: %d, CustomPrompt length: %d, Commands: %d",
+	log.Printf("[LLM] Request parsed - Action: %s, SessionID: %s, CustomPrompt length: %d, Commands: %d",
 		req.Action, req.SessionID, len(req.CustomPrompt), len(req.Commands))
 
 	var result string
@@ -817,8 +831,8 @@ func (s *Server) handleLLMAnalyze(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[LLM] Using custom prompt (length: %d chars)", len(req.CustomPrompt))
 		log.Printf("[LLM] Prompt preview: %s...", truncateString(req.CustomPrompt, 100))
 		result, err = s.ollama.Generate(req.CustomPrompt)
-	} else if req.SessionID > 0 {
-		log.Printf("[LLM] Analyzing session %d", req.SessionID)
+	} else if req.SessionID != "" {
+		log.Printf("[LLM] Analyzing session %s", req.SessionID)
 		s.mu.RLock()
 		var session *Session
 		for i := range s.sessions {
@@ -830,7 +844,7 @@ func (s *Server) handleLLMAnalyze(w http.ResponseWriter, r *http.Request) {
 		s.mu.RUnlock()
 
 		if session == nil {
-			log.Printf("[LLM] Error: Session %d not found", req.SessionID)
+			log.Printf("[LLM] Error: Session %s not found", req.SessionID)
 			http.Error(w, "Session not found", http.StatusNotFound)
 			return
 		}
@@ -1212,14 +1226,9 @@ func (s *Server) ConvertToScript(sessions []*Session, lang string) string {
 func (s *Server) AnalyzeSession(sessionID string, action string, customPrompt string) (string, error) {
 	s.mu.RLock()
 	var session *Session
-	sessionIDInt, err := strconv.Atoi(sessionID)
-	if err != nil {
-		s.mu.RUnlock()
-		return "", fmt.Errorf("invalid session ID: %w", err)
-	}
 	
 	for i := range s.sessions {
-		if s.sessions[i].ID == sessionIDInt {
+		if s.sessions[i].ID == sessionID {
 			session = &s.sessions[i]
 			break
 		}
@@ -1318,7 +1327,7 @@ type DirectoryCommandResult struct {
 	Timestamp   time.Time `json:"timestamp"`
 	Directory   string    `json:"directory"`
 	Category    string    `json:"category"`
-	SessionID   int       `json:"session_id"`
+	SessionID   string    `json:"session_id"`    // Changed from int to string
 	CommandID   int       `json:"command_id"`
 	SessionDesc string    `json:"session_description"`
 }
@@ -1334,7 +1343,7 @@ func (s *Server) handleCommandsByDirectory(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Create session description lookup
-	sessionDescMap := make(map[int]string)
+	sessionDescMap := make(map[string]string)
 	for _, session := range s.sessions {
 		sessionDescMap[session.ID] = session.Description
 	}

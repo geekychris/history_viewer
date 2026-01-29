@@ -253,10 +253,10 @@ func (m *MetadataStore) MergeIntoSessions(sessions []Session) []Session {
 	defer m.mu.RUnlock()
 
 	for i := range sessions {
-		// Add session notes, tags, and metadata
-		sessions[i].Notes = m.GetNotesForTarget(TargetSession, sessions[i].ID)
-		sessions[i].Tags = m.GetTagsForTarget(TargetSession, sessions[i].ID)
-		sessions[i].Metadata = m.GetSessionMetadata(TargetSession, sessions[i].ID)
+		// Add session notes, tags, and metadata using SequenceNumber as targetID
+		sessions[i].Notes = m.GetNotesForTarget(TargetSession, sessions[i].SequenceNumber)
+		sessions[i].Tags = m.GetTagsForTarget(TargetSession, sessions[i].SequenceNumber)
+		sessions[i].Metadata = m.GetSessionMetadata(TargetSession, sessions[i].SequenceNumber)
 
 		// Add command notes and tags
 		for j := range sessions[i].Commands {

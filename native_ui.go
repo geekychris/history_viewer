@@ -2,8 +2,7 @@ package main
 
 import (
 	"fmt"
-	sortpkg "sort"
-	"strconv"
+	"sort"
 	"strings"
 	"time"
 
@@ -355,11 +354,11 @@ func (ui *NativeUI) applyFilters() {
 	}
 	
 	if sortOrder == "desc" {
-		sortpkg.Slice(ui.filtered, func(i, j int) bool {
+		sort.Slice(ui.filtered, func(i, j int) bool {
 			return ui.filtered[i].StartTime.After(ui.filtered[j].StartTime)
 		})
 	} else {
-		sortpkg.Slice(ui.filtered, func(i, j int) bool {
+		sort.Slice(ui.filtered, func(i, j int) bool {
 			return ui.filtered[i].StartTime.Before(ui.filtered[j].StartTime)
 		})
 	}
@@ -491,7 +490,7 @@ func (ui *NativeUI) showSessionExportDialog(session *Session) {
 		}, ui.window)
 		
 		ext := map[string]string{"bash": "sh", "python": "py", "java": "java", "go": "go"}
-		saveDialog.SetFileName(fmt.Sprintf("session_%d.%s", session.ID, ext[lang]))
+		saveDialog.SetFileName(fmt.Sprintf("session_%d.%s", session.SequenceNumber, ext[lang]))
 		saveDialog.Show()
 		
 	}, ui.window)
@@ -535,7 +534,7 @@ func (ui *NativeUI) showAIAnalysisDialog(session *Session) {
 			var result string
 			var err error
 			
-			sessionID := strconv.Itoa(session.ID)
+			sessionID := session.ID
 			if actionSelect.Selected == "Explain" {
 				result, err = ui.server.AnalyzeSession(sessionID, "explain", "")
 			} else {

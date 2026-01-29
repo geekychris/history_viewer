@@ -1402,13 +1402,13 @@ function renderSessions() {
         }
         
         return `
-        <div class="session-card">
+        <div class="session-card" data-session-id="${session.id}">
             <div class="session-header">
-                <div class="session-title">Session #${session.id}: ${escapeHtml(session.description)}</div>
+                <div class="session-title">Session #${session.sequence_number}: ${escapeHtml(session.description)}</div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <button class="btn btn-icon-small" onclick="openNoteModal('session', ${session.id})" title="Add Note">📝</button>
-                    <button class="btn btn-icon-small" onclick="openTagModal('session', ${session.id})" title="Add Tag">🏷️</button>
-                    <button class="btn btn-icon-small" onclick="openMetadataModal('session', ${session.id})" title="Set Color & Stars">🎨</button>
+                    <button class="btn btn-icon-small" onclick="openNoteModal('session', ${session.sequence_number})" title="Add Note">📝</button>
+                    <button class="btn btn-icon-small" onclick="openTagModal('session', ${session.sequence_number})" title="Add Tag">🏷️</button>
+                    <button class="btn btn-icon-small" onclick="openMetadataModal('session', ${session.sequence_number})" title="Set Color & Stars">🎨</button>
                     <button class="btn btn-secondary" onclick="toggleLLMPanel('session-${session.id}')">🤖 AI Analyze</button>
                     <button class="btn btn-success" onclick="toggleExportPanel('session-${session.id}')">📥 Export</button>
                 </div>
@@ -1426,20 +1426,20 @@ function renderSessions() {
                 ).join(' ')}
             </div>
             ${renderSessionMetadata(session.metadata)}
-            ${renderNotes(session.notes || [], 'session', session.id)}
-            ${renderTags(session.tags || [], 'session', session.id)}
+            ${renderNotes(session.notes || [], 'session', session.sequence_number)}
+            ${renderTags(session.tags || [], 'session', session.sequence_number)}
             <div id="llm-panel-session-${session.id}" style="display:none;">
                 <div class="llm-panel">
                     <div style="margin-bottom:15px;">
-                        <button class="btn btn-primary" onclick="analyzeSession(${session.id}, 'explain')">Explain This Session</button>
+                        <button class="btn btn-primary" onclick="analyzeSession('${session.id}', 'explain')">Explain This Session</button>
                     </div>
                     <div style="border-top:1px solid #ddd; padding-top:15px;">
                         <label style="display:block; margin-bottom:5px; font-weight:500;">Or ask a custom question:</label>
                         <div style="display:flex; gap:10px;">
                             <input type="text" id="custom-prompt-${session.id}" placeholder="e.g., What files were modified? What was I debugging?" 
                                    style="flex:1; padding:10px; border:2px solid #e0e0e0; border-radius:6px;" 
-                                   onkeypress="if(event.key==='Enter') analyzeSessionCustom(${session.id})" />
-                            <button class="btn btn-primary" onclick="analyzeSessionCustom(${session.id})">Ask</button>
+                                   onkeypress="if(event.key==='Enter') analyzeSessionCustom('${session.id}')" />
+                            <button class="btn btn-primary" onclick="analyzeSessionCustom('${session.id}')">Ask</button>
                         </div>
                     </div>
                     <div id="llm-result-session-${session.id}" style="margin-top:15px; min-height:50px;"></div>
@@ -1449,10 +1449,10 @@ function renderSessions() {
                 <div style="background:#e7f3ff; border:2px solid #667eea; border-radius:8px; padding:20px; margin-top:15px;">
                     <h3 style="margin-bottom:10px;">Export Commands</h3>
                     <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                        <button class="btn btn-primary" onclick="exportSessionAs(${session.id}, 'bash')">Bash Script</button>
-                        <button class="btn btn-primary" onclick="exportSessionAs(${session.id}, 'python')">Python Script</button>
-                        <button class="btn btn-primary" onclick="exportSessionAs(${session.id}, 'java')">Java Class</button>
-                        <button class="btn btn-primary" onclick="exportSessionAs(${session.id}, 'go')">Go Program</button>
+                        <button class="btn btn-primary" onclick="exportSessionAs('${session.id}', 'bash')">Bash Script</button>
+                        <button class="btn btn-primary" onclick="exportSessionAs('${session.id}', 'python')">Python Script</button>
+                        <button class="btn btn-primary" onclick="exportSessionAs('${session.id}', 'java')">Java Class</button>
+                        <button class="btn btn-primary" onclick="exportSessionAs('${session.id}', 'go')">Go Program</button>
                     </div>
                 </div>
             </div>
@@ -1461,7 +1461,7 @@ function renderSessions() {
             </div>
             ${!shouldShowAll && session.commands.length > 5 ? `
                 <div style="text-align:center; margin-top:10px;">
-                    <button class="btn btn-secondary" onclick="showAllCommands(${session.id})">
+                    <button class="btn btn-secondary" onclick="showAllCommands('${session.id}')">
                         Show all ${session.commands.length} commands
                     </button>
                 </div>
@@ -1741,7 +1741,7 @@ function showAllCommands(sessionId) {
     console.log('Commands rendered successfully');
     
     // Hide the "Show all" button
-    const button = document.querySelector(`button[onclick="showAllCommands(${sessionId})"]`);
+    const button = document.querySelector(`button[onclick="showAllCommands('${sessionId}')"]`);
     if (button && button.parentElement) {
         button.parentElement.style.display = 'none';
     }
@@ -1988,7 +1988,8 @@ function openMetadataModal(type, id) {
     currentMetadataTarget = {type, id};
     
     // Get current metadata for this session
-    const session = sessions.find(s => s.id === id && type === 'session');
+    // id here is the sequence_number (integer) for lookups
+    const session = sessions.find(s => s.sequence_number === id && type === 'session');
     const metadata = session?.metadata;
     
     // Set current values
@@ -2485,9 +2486,11 @@ function renderCommandSearchResults() {
                                         <button class="btn-icon-small btn-explain" data-command="${escapeHtml(result.command)}" title="Ask AI to explain">
                                             🤖 Explain
                                         </button>
-                                        <button class="btn-icon-small" onclick="scrollToSession(${result.session_id})" title="Go to session">
+                                        ${result.session_id ? `
+                                        <button class="btn-icon-small" onclick="scrollToSession('${escapeForJs(result.session_id)}')" title="Go to session">
                                             ➡️ Go to Session
                                         </button>
+                                        ` : ''}
                                     </div>
                                 </div>
                                 <div class="command-result-text">${escapeHtml(result.command)}</div>
@@ -2495,9 +2498,11 @@ function renderCommandSearchResults() {
                                     <span>📅 ${new Date(result.timestamp).toLocaleString()}</span>
                                     <span>📁 ${escapeHtml(result.directory)}</span>
                                     <span>🏷️ ${escapeHtml(result.category)}</span>
-                                    <span style="cursor:pointer; color:#667eea;" onclick="scrollToSession(${result.session_id})">
+                                    ${result.session_id ? `
+                                    <span style="cursor:pointer; color:#667eea;" onclick="scrollToSession('${escapeForJs(result.session_id)}')">
                                         📌 ${escapeHtml(result.session_description)}
                                     </span>
+                                    ` : '<span>⚠️ No session</span>'}
                                 </div>
                             </div>
                         `).join('')}
@@ -2639,22 +2644,45 @@ async function explainCommand(command) {
     }
 }
 
-function scrollToSession(sessionId) {
-    // First, make sure we're showing sessions view
-    document.getElementById('sessionsView').scrollIntoView({ behavior: 'smooth', block: 'start' });
+async function scrollToSession(sessionID) {
+    console.log('scrollToSession called for session:', sessionID);
     
-    // Then try to scroll to the specific session card after a short delay
+    // Clear all filters to ensure the session is visible
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+    document.getElementById('categoryFilter').value = 'all';
+    document.getElementById('keywordFilter').value = '';
+    document.getElementById('noteFilter').value = '';
+    document.getElementById('tagKeywordFilter').value = '';
+    document.getElementById('tagStarsFilter').value = '';
+    filters = { startDate: '', endDate: '', category: 'all', keyword: '', noteSearch: '', tagKeyword: '', tagStars: '' };
+    
+    // Close all LLM panels
+    activeLLMPanels.clear();
+    
+    // Reload data to ensure we have all sessions
+    await fetchData();
+    
+    // Wait for render to complete
     setTimeout(() => {
-        const sessionCards = document.querySelectorAll('.session-card');
-        for (let card of sessionCards) {
-            if (card.querySelector('.session-title').textContent.includes(`#${sessionId}:`)) {
+        // First, make sure we're showing sessions view
+        document.getElementById('sessionsView').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        // Then try to scroll to the specific session card by data attribute
+        setTimeout(() => {
+            const card = document.querySelector(`[data-session-id="${sessionID}"]`);
+            
+            if (card) {
                 card.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 card.style.backgroundColor = '#fffacd';
                 setTimeout(() => { card.style.backgroundColor = ''; }, 2000);
-                break;
+                console.log('Found and scrolled to session', sessionID);
+            } else {
+                console.error('Session not found after clearing filters:', sessionID);
+                alert(`Could not find session. It may have been deleted or not loaded.`);
             }
-        }
-    }, 500);
+        }, 500);
+    }, 100);
 }
 
 function escapeForJs(text) {
@@ -2841,9 +2869,11 @@ function renderDirectorySearchResults(path) {
                                         <button class="btn-icon-small btn-explain" data-command="${escapeHtml(result.command)}" title="Ask AI to explain">
                                             🤖 Explain
                                         </button>
-                                        <button class="btn-icon-small" onclick="scrollToSession(${result.session_id})" title="Go to session">
+                                        ${result.session_id ? `
+                                        <button class="btn-icon-small" onclick="scrollToSession('${escapeForJs(result.session_id)}')" title="Go to session">
                                             ➡️ Go to Session
                                         </button>
+                                        ` : ''}
                                     </div>
                                 </div>
                                 <div class="command-result-text">${escapeHtml(result.command)}</div>
@@ -2851,9 +2881,11 @@ function renderDirectorySearchResults(path) {
                                     <span>📅 ${new Date(result.timestamp).toLocaleString()}</span>
                                     <span>📁 ${escapeHtml(result.directory)}</span>
                                     <span>🏷️ ${escapeHtml(result.category)}</span>
-                                    <span style="cursor:pointer; color:#667eea;" onclick="scrollToSession(${result.session_id})">
+                                    ${result.session_id ? `
+                                    <span style="cursor:pointer; color:#667eea;" onclick="scrollToSession('${escapeForJs(result.session_id)}')">
                                         📌 ${escapeHtml(result.session_description)}
                                     </span>
+                                    ` : '<span>⚠️ No session</span>'}
                                 </div>
                             </div>
                         `).join('')}
