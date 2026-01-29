@@ -60,12 +60,10 @@ jobs:
 
   build-linux:
     name: Build Linux
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm64' || 'ubuntu-latest' }}
     strategy:
       matrix:
-        arch: [amd64]
-        # Note: ARM64 build disabled - cross-compiling CGO (Fyne) apps is complex
-        # and requires ARM64 native runners. Will add back when ARM64 runners available.
+        arch: [amd64, arm64]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -79,19 +77,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc libgl1-mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            # Add ARM64 architecture and install cross-compilation toolchain
-            sudo dpkg --add-architecture arm64
-            sudo apt-get update
-            sudo apt-get install -y gcc-aarch64-linux-gnu \
-              libgl1-mesa-dev:arm64 \
-              libxcursor-dev:arm64 \
-              libxrandr-dev:arm64 \
-              libxinerama-dev:arm64 \
-              libxi-dev:arm64 \
-              libxxf86vm-dev:arm64 \
-              libx11-dev:arm64
-          fi
 
       - name: Download Go modules
         run: go mod download
@@ -102,11 +87,6 @@ jobs:
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 1
         run: |
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            export CC=aarch64-linux-gnu-gcc
-            export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
-            export CGO_LDFLAGS="-L/usr/lib/aarch64-linux-gnu"
-          fi
           go build -tags web -o history_viewer-linux-${{ matrix.arch }} .
 
       - name: Create tarball
