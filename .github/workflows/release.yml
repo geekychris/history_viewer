@@ -60,12 +60,10 @@ jobs:
 
   build-linux:
     name: Build Linux
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       matrix:
-        arch: [amd64]
-        # Note: ARM64 builds require GitHub Enterprise for native ARM64 runners.
-        # Cross-compilation with CGO/Fyne is too complex to maintain reliably.
+        arch: [amd64, arm64]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
