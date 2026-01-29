@@ -51,15 +51,20 @@ deps-check:
 deps-ubuntu-check:
 	@echo "Checking Ubuntu/Linux dependencies..."
 	@missing=""; \
+	if [ "$(ARCH)" = "arm64" ]; then \
+		suffix=":arm64"; \
+	else \
+		suffix=""; \
+	fi; \
 	for pkg in libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev libxxf86vm-dev; do \
-		if ! dpkg -l | grep -q "$$pkg"; then \
-			missing="$$missing $$pkg"; \
+		if ! dpkg -l | grep -q "$$pkg$$suffix"; then \
+			missing="$$missing $$pkg$$suffix"; \
 		fi; \
 	done; \
 	if [ -n "$$missing" ]; then \
 		echo "Missing packages:$$missing"; \
 		echo "Installing missing packages..."; \
-		$(MAKE) deps-ubuntu; \
+		$(MAKE) deps-ubuntu ARCH=$(ARCH); \
 	else \
 		echo "All Ubuntu dependencies are installed."; \
 	fi
@@ -67,13 +72,19 @@ deps-ubuntu-check:
 # Install Ubuntu/Debian dependencies
 deps-ubuntu:
 	@echo "Installing Ubuntu/Linux dependencies..."
+	@if [ "$(ARCH)" = "arm64" ]; then \
+		suffix=":arm64"; \
+		sudo dpkg --add-architecture arm64; \
+	else \
+		suffix=""; \
+	fi; \
 	sudo apt-get update && sudo apt-get install -y \
-		libxcursor-dev \
-		libxrandr-dev \
-		libxinerama-dev \
-		libxi-dev \
-		libgl1-mesa-dev \
-		libxxf86vm-dev
+		libxcursor-dev$$suffix \
+		libxrandr-dev$$suffix \
+		libxinerama-dev$$suffix \
+		libxi-dev$$suffix \
+		libgl1-mesa-dev$$suffix \
+		libxxf86vm-dev$$suffix
 
 # Check macOS dependencies
 deps-macos-check:
