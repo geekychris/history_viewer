@@ -242,7 +242,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: geekychris/homebrew-history-viewer
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
           path: homebrew-tap
 
       - name: Update formula
@@ -278,7 +278,7 @@ jobs:
 
       - name: Commit and push
         env:
-          GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
         run: |
           cd homebrew-tap
           git config user.name "github-actions[bot]"
