@@ -4,8 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [1.2.4] - 2026-01-29
 
-### Added
-- Linux ARM64 build support using native ARM64 runners
+### Changed
+- Confirmed builds for macOS (Intel & Apple Silicon) and Linux (x86_64)
+- Linux ARM64 not available (requires GitHub Enterprise for native ARM64 runners)
 
 ## [1.2.3] - 2026-01-29
 
