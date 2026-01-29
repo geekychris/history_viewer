@@ -63,7 +63,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64]
+        # Note: ARM64 build disabled - cross-compiling CGO (Fyne) apps is complex
+        # and requires ARM64 native runners. Will add back when ARM64 runners available.
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
