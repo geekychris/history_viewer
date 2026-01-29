@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.3] - 2026-01-29
+
+### Fixed
+- Fixed GitHub Actions workflow to use HOMEBREW_TAP_TOKEN secret for Homebrew tap updates
+
 ## [0.1.2] - 2026-01-29
 
 ### Fixed
