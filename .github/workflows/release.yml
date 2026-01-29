@@ -78,7 +78,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc libgl1-mesa-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev
           if [ "${{ matrix.arch }}" = "arm64" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
+            # Add ARM64 architecture and install cross-compilation toolchain
+            sudo dpkg --add-architecture arm64
+            sudo apt-get update
+            sudo apt-get install -y gcc-aarch64-linux-gnu \
+              libgl1-mesa-dev:arm64 \
+              libxcursor-dev:arm64 \
+              libxrandr-dev:arm64 \
+              libxinerama-dev:arm64 \
+              libxi-dev:arm64 \
+              libxxf86vm-dev:arm64 \
+              libx11-dev:arm64
           fi
 
       - name: Download Go modules
@@ -92,6 +102,8 @@ jobs:
         run: |
           if [ "${{ matrix.arch }}" = "arm64" ]; then
             export CC=aarch64-linux-gnu-gcc
+            export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
+            export CGO_LDFLAGS="-L/usr/lib/aarch64-linux-gnu"
           fi
           go build -tags web -o history_viewer-linux-${{ matrix.arch }} .
 
