@@ -84,7 +84,8 @@ deps-ubuntu:
 		libxinerama-dev$$suffix \
 		libxi-dev$$suffix \
 		libgl1-mesa-dev$$suffix \
-		libxxf86vm-dev$$suffix
+		libxxf86vm-dev$$suffix \
+		pkg-config
 
 # Check macOS dependencies
 deps-macos-check:
