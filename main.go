@@ -56,6 +56,11 @@ func main() {
 			log.Printf("Deep-link: http://localhost:%d/?dir=%s",
 				config.Port, url.QueryEscape(config.InitialDirFilter))
 		}
+		// Seed the shared filter state so a subscribing frontend applies it
+		// on first poll (in addition to the ?dir=… URL-param path). Also lets
+		// external clients (Chief) read /api/filter/current and get the CLI
+		// flag's value even before any POST.
+		SeedFilterFromConfig(config)
 		// Start web server
 		server := NewServer(config)
 		if err := server.Start(); err != nil {

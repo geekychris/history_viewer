@@ -99,6 +99,12 @@ func (s *Server) Start() error {
 	http.HandleFunc("/api/metadata/tags", s.handleTags)
 	http.HandleFunc("/api/metadata/session", s.handleSessionMetadata)
 
+	// Directory filter: external tools (Chief) POST here to focus the UI
+	// on a specific working directory; the frontend polls /current every
+	// few seconds and applies changes in place (no reload, no scroll reset).
+	http.HandleFunc("/api/filter/directory", s.handleSetFilterDirectory)
+	http.HandleFunc("/api/filter/current", s.handleGetCurrentFilter)
+
 	addr := fmt.Sprintf(":%d", s.config.Port)
 	log.Printf("Starting history viewer on http://localhost%s\n", addr)
 	return http.ListenAndServe(addr, s.corsMiddleware(http.DefaultServeMux))

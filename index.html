@@ -2416,34 +2416,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // to a specific project. The sessions list is fetched async after
     // DOMContentLoaded, so searchDirectory() can throw on null data early.
     // We retry with backoff for up to ~6s, swallowing errors along the way.
+    let __deepLinkAppliedVersion = -1;
+    const applyDirectoryFilter = (dir) => {
+        const input = document.getElementById('directoryPathInput');
+        if (!input || !dir) return;
+        input.value = dir;
+        input.scrollIntoView({behavior: 'smooth', block: 'center'});
+        const attempt = (n) => {
+            if (typeof searchDirectory !== 'function') return;
+            try {
+                const origAlert = window.alert;
+                window.alert = () => {};
+                searchDirectory();
+                window.alert = origAlert;
+            } catch (err) {
+                if (n < 12) setTimeout(() => attempt(n + 1), 500);
+            }
+        };
+        setTimeout(() => attempt(0), 400);
+    };
+    // Initial URL param → immediate apply.
     try {
         const params = new URLSearchParams(window.location.search);
         const dir = params.get('dir');
-        if (dir) {
-            const input = document.getElementById('directoryPathInput');
-            if (input) {
-                input.value = dir;
-                input.scrollIntoView({behavior: 'smooth', block: 'center'});
-                const attemptFilter = (n) => {
-                    if (typeof searchDirectory !== 'function') return;
-                    try {
-                        // searchDirectory reads the input's value and mutates
-                        // the results panel. Wrap so a not-yet-loaded data
-                        // set doesn't surface an alert on the user.
-                        const origAlert = window.alert;
-                        window.alert = () => {};
-                        searchDirectory();
-                        window.alert = origAlert;
-                    } catch (err) {
-                        if (n < 12) setTimeout(() => attemptFilter(n + 1), 500);
-                    }
-                };
-                setTimeout(() => attemptFilter(0), 400);
-            }
-        }
+        if (dir) applyDirectoryFilter(dir);
     } catch (e) {
         console.warn('deep-link parse failed:', e);
     }
+    // Poll /api/filter/current every 3s. When an external client (Chief)
+    // POSTs /api/filter/directory the version bumps; we notice and apply
+    // in place — no page reload, no scroll reset.
+    const pollFilter = async () => {
+        try {
+            const r = await fetch('/api/filter/current', {cache: 'no-store'});
+            if (!r.ok) return;
+            const d = await r.json();
+            if (typeof d.version === 'number' && d.version > __deepLinkAppliedVersion) {
+                __deepLinkAppliedVersion = d.version;
+                if (d.dir) applyDirectoryFilter(d.dir);
+            }
+        } catch (e) { /* offline — ignore */ }
+    };
+    pollFilter();
+    setInterval(pollFilter, 3000);
 });
 
 // Command Search Functions

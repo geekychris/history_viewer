@@ -50,8 +50,16 @@ type App struct {
 	port  int
 }
 
-func (a *App) shutdown(_ context.Context)      { a.killChild() }
-func (a *App) beforeClose(_ context.Context) bool { a.killChild(); return false }
+func (a *App) shutdown(_ context.Context) {
+	a.killChild()
+	removePortFile()
+}
+
+func (a *App) beforeClose(_ context.Context) bool {
+	a.killChild()
+	removePortFile()
+	return false
+}
 
 func (a *App) killChild() {
 	a.mu.Lock()
@@ -93,6 +101,11 @@ func main() {
 		app.killChild()
 		log.Fatalf("hv-app: child never came up on :%d: %v", chosenPort, err)
 	}
+	// Publish the child port to a well-known file so external tools (Chief)
+	// can discover a running instance and POST /api/filter/directory to
+	// redirect the view instead of spawning a duplicate window.
+	writePortFile(chosenPort)
+	defer removePortFile()
 
 	// Build the target URL, including ?dir=… for the frontend deep-link.
 	// The redirect stub in frontend/dist/index.html reads window.HV_URL,
@@ -231,6 +244,27 @@ func waitForPort(port int, timeout time.Duration) error {
 	}
 	return fmt.Errorf("timeout")
 }
+
+// PortFilePath returns the well-known location where hv-app publishes its
+// child web-server port on startup. Exposed so external integrators
+// (Chief) can find a running instance without probing.
+func PortFilePath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, "Library", "Caches", "history_viewer", "port")
+}
+
+func writePortFile(port int) {
+	p := PortFilePath()
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		log.Printf("hv-app: port file mkdir: %v", err)
+		return
+	}
+	if err := os.WriteFile(p, []byte(fmt.Sprintf("127.0.0.1:%d\n", port)), 0o644); err != nil {
+		log.Printf("hv-app: port file write: %v", err)
+	}
+}
+
+func removePortFile() { _ = os.Remove(PortFilePath()) }
 
 // urlEscape is a tiny helper so we don't drag in net/url just for one call.
 func urlEscape(s string) string {
