@@ -36,7 +36,7 @@ func (e *Exporter) ExportCSV(sessions []Session) (string, error) {
 	for _, session := range sessions {
 		for _, cmd := range session.Commands {
 			record := []string{
-				fmt.Sprintf("%d", session.ID),
+				session.ID,
 				fmt.Sprintf("%d", cmd.ID),
 				cmd.Timestamp.Format(time.RFC3339),
 				fmt.Sprintf("%d", cmd.Duration),
@@ -66,7 +66,7 @@ func (e *Exporter) ExportMarkdown(sessions []Session) string {
 	buf.WriteString(fmt.Sprintf("Generated: %s\n\n", time.Now().Format(time.RFC1123)))
 
 	for _, session := range sessions {
-		buf.WriteString(fmt.Sprintf("## Session %d: %s\n\n", session.ID, session.Description))
+		buf.WriteString(fmt.Sprintf("## Session %s: %s\n\n", session.ID, session.Description))
 		buf.WriteString(fmt.Sprintf("- **Start:** %s\n", session.StartTime.Format(time.RFC1123)))
 		buf.WriteString(fmt.Sprintf("- **End:** %s\n", session.EndTime.Format(time.RFC1123)))
 		buf.WriteString(fmt.Sprintf("- **Duration:** %s\n", session.Duration.Round(time.Second)))

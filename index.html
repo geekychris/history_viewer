@@ -2421,6 +2421,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const input = document.getElementById('directoryPathInput');
         if (!input || !dir) return;
         input.value = dir;
+        // The Directory Explorer section is collapsed by default. When a
+        // deep-link filter is applied programmatically the user has no way
+        // to notice results unless we expand it — otherwise "did the filter
+        // even fire?" is a fair question. Expand and update the toggle
+        // glyph to match toggleSection()'s open state.
+        const section = document.getElementById('directoryExplorerSection');
+        const toggleIcon = document.getElementById('directoryExplorerToggle');
+        if (section && section.style.display === 'none') {
+            section.style.display = 'block';
+            if (toggleIcon) toggleIcon.textContent = '▼';
+        }
         input.scrollIntoView({behavior: 'smooth', block: 'center'});
         const attempt = (n) => {
             if (typeof searchDirectory !== 'function') return;
