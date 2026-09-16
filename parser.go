@@ -51,16 +51,51 @@ func (p *Parser) ParseHistory() ([]HistoryEntry, error) {
 	
 	currentDir := p.config.HomeDir
 	id := 1
+	// Reset cwd tracking whenever we see a time gap longer than this. Rationale:
+	// zsh's history file is a single stream from every terminal + session on
+	// the machine, so `cd` events interleave across shells. A large gap between
+	// two consecutive entries almost always means "a different terminal
+	// started" — its cwd is unrelated to whatever the previous terminal was in.
+	// Absent this reset, the accumulated cwd drifts wildly.
+	cwdResetGap := time.Duration(p.config.SessionTimeout)
+	if cwdResetGap <= 0 {
+		cwdResetGap = 30 * time.Minute
+	}
+	var lastTS time.Time
+
+	// Local closure so both the main path and the read-ahead branch below share
+	// the same cwd-tracking logic (including the time-gap reset).
+	appendEntry := func(timestamp int64, duration int, command string) {
+		ts := time.Unix(timestamp, 0)
+		if !lastTS.IsZero() && ts.Sub(lastTS) > cwdResetGap {
+			currentDir = p.config.HomeDir
+		}
+		lastTS = ts
+		if cdMatches := cdRegex.FindStringSubmatch(command); len(cdMatches) > 1 {
+			newDir := strings.TrimSpace(cdMatches[1])
+			currentDir = p.resolveDirectory(currentDir, newDir)
+		}
+		entries = append(entries, HistoryEntry{
+			ID:          id,
+			Timestamp:   ts,
+			Duration:    duration,
+			Command:     command,
+			Directory:   currentDir,
+			Category:    CategorizeCommand(command),
+			BaseCommand: GetBaseCommand(command),
+		})
+		id++
+	}
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		matches := historyLineRegex.FindStringSubmatch(line)
 		if len(matches) == 4 {
 			timestamp, _ := strconv.ParseInt(matches[1], 10, 64)
 			duration, _ := strconv.Atoi(matches[2])
 			command := matches[3]
-			
+
 			// Handle multi-line commands
 			for scanner.Scan() {
 				nextLine := scanner.Text()
@@ -72,51 +107,16 @@ func (p *Parser) ParseHistory() ([]HistoryEntry, error) {
 				}
 				command += "\n" + nextLine
 			}
-			
-			// Track directory changes
-			if cdMatches := cdRegex.FindStringSubmatch(command); len(cdMatches) > 1 {
-				newDir := strings.TrimSpace(cdMatches[1])
-				currentDir = p.resolveDirectory(currentDir, newDir)
-			}
-			
-			entry := HistoryEntry{
-				ID:          id,
-				Timestamp:   time.Unix(timestamp, 0),
-				Duration:    duration,
-				Command:     command,
-				Directory:   currentDir,
-				Category:    CategorizeCommand(command),
-				BaseCommand: GetBaseCommand(command),
-			}
-			
-			entries = append(entries, entry)
-			id++
-			
+
+			appendEntry(timestamp, duration, command)
+
 			// If we read ahead to check for multiline, process that line now
 			if historyLineRegex.MatchString(line) {
 				matches = historyLineRegex.FindStringSubmatch(line)
 				if len(matches) == 4 {
-					timestamp, _ := strconv.ParseInt(matches[1], 10, 64)
-					duration, _ := strconv.Atoi(matches[2])
-					command := matches[3]
-					
-					if cdMatches := cdRegex.FindStringSubmatch(command); len(cdMatches) > 1 {
-						newDir := strings.TrimSpace(cdMatches[1])
-						currentDir = p.resolveDirectory(currentDir, newDir)
-					}
-					
-					entry := HistoryEntry{
-						ID:          id,
-						Timestamp:   time.Unix(timestamp, 0),
-						Duration:    duration,
-						Command:     command,
-						Directory:   currentDir,
-						Category:    CategorizeCommand(command),
-						BaseCommand: GetBaseCommand(command),
-					}
-					
-					entries = append(entries, entry)
-					id++
+					ts2, _ := strconv.ParseInt(matches[1], 10, 64)
+					dur2, _ := strconv.Atoi(matches[2])
+					appendEntry(ts2, dur2, matches[3])
 				}
 			}
 		}
@@ -131,31 +131,93 @@ func (p *Parser) ParseHistory() ([]HistoryEntry, error) {
 
 func (p *Parser) resolveDirectory(currentDir, newDir string) string {
 	newDir = strings.Trim(newDir, "\"'")
-	
+
 	// Handle special cases
 	if newDir == "~" || newDir == "" {
 		return p.config.HomeDir
 	}
-	
+
 	if strings.HasPrefix(newDir, "~/") {
 		return filepath.Join(p.config.HomeDir, newDir[2:])
 	}
-	
+
 	if filepath.IsAbs(newDir) {
 		return filepath.Clean(newDir)
 	}
-	
+
 	// Handle relative paths
 	if newDir == ".." {
 		return filepath.Dir(currentDir)
 	}
-	
+
 	if newDir == "." {
 		return currentDir
 	}
-	
-	// Resolve relative path
-	return filepath.Clean(filepath.Join(currentDir, newDir))
+
+	// Resolve relative path, then sanitise the result — see sanitizeDir.
+	return sanitizeDir(filepath.Clean(filepath.Join(currentDir, newDir)), p.config.HomeDir)
+}
+
+// sanitizeDir applies three defensive fixes to a resolved cwd. All of them
+// exist because zsh's history file conflates every terminal's `cd` events
+// into a single stream, so replaying them serially accumulates cwd drift
+// from unrelated shells:
+//
+//  1. Collapse 3+ consecutive identical segments to one adjacent pair.
+//     Two consecutive identicals is real (rare — e.g. `foo/foo`), three+
+//     is almost always chained-cd drift.
+//  2. If any single segment appears 3+ times in the whole path (adjacent
+//     or not), the path is bogus — reset to home. Real project paths
+//     don't have the same directory name appearing three times.
+//  3. If the path is deeper than 30 segments, reset to home. macOS
+//     working dirs don't run 30 levels deep in practice.
+//
+// All heuristics; the fundamental problem can only be bounded, not solved.
+func sanitizeDir(dir, home string) string {
+	if dir == "" {
+		return home
+	}
+	parts := strings.Split(dir, string(filepath.Separator))
+
+	// (1) Drop 3rd+ adjacent identical segments.
+	out := make([]string, 0, len(parts))
+	repeat := 0
+	for i, p := range parts {
+		if i > 0 && p == parts[i-1] && p != "" {
+			repeat++
+			if repeat >= 2 {
+				continue
+			}
+		} else {
+			repeat = 0
+		}
+		out = append(out, p)
+	}
+	cleaned := filepath.Clean(strings.Join(out, string(filepath.Separator)))
+
+	// (2) Any single segment repeated 3+ times anywhere → bogus.
+	counts := map[string]int{}
+	for _, seg := range strings.Split(cleaned, string(filepath.Separator)) {
+		if seg == "" {
+			continue
+		}
+		counts[seg]++
+		if counts[seg] >= 3 {
+			return home
+		}
+	}
+
+	// (3) Depth cap.
+	depth := 0
+	for _, seg := range strings.Split(cleaned, string(filepath.Separator)) {
+		if seg != "" {
+			depth++
+		}
+	}
+	if depth > 30 {
+		return home
+	}
+	return cleaned
 }
 
 func (p *Parser) GroupIntoSessions(entries []HistoryEntry, sessionIndex *SessionIndex) []Session {
