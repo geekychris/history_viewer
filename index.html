@@ -2413,7 +2413,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Deep-link support: ?dir=<path> pre-fills the "commands by directory"
     // search on load. Used by tools like Chief to open the viewer scoped
-    // to a specific project.
+    // to a specific project. The sessions list is fetched async after
+    // DOMContentLoaded, so searchDirectory() can throw on null data early.
+    // We retry with backoff for up to ~6s, swallowing errors along the way.
     try {
         const params = new URLSearchParams(window.location.search);
         const dir = params.get('dir');
@@ -2421,14 +2423,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const input = document.getElementById('directoryPathInput');
             if (input) {
                 input.value = dir;
-                // Give the initial data-load a beat before firing the search
-                // — the sessions list is fetched async; searchDirectory()
-                // itself only needs the input value, but scrolling into view
-                // is nicer once the page has settled.
-                if (typeof searchDirectory === 'function') {
-                    setTimeout(() => searchDirectory(), 150);
-                    input.scrollIntoView({behavior: 'smooth', block: 'center'});
-                }
+                input.scrollIntoView({behavior: 'smooth', block: 'center'});
+                const attemptFilter = (n) => {
+                    if (typeof searchDirectory !== 'function') return;
+                    try {
+                        // searchDirectory reads the input's value and mutates
+                        // the results panel. Wrap so a not-yet-loaded data
+                        // set doesn't surface an alert on the user.
+                        const origAlert = window.alert;
+                        window.alert = () => {};
+                        searchDirectory();
+                        window.alert = origAlert;
+                    } catch (err) {
+                        if (n < 12) setTimeout(() => attemptFilter(n + 1), 500);
+                    }
+                };
+                setTimeout(() => attemptFilter(0), 400);
             }
         }
     } catch (e) {
