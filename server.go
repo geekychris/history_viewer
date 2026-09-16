@@ -148,6 +148,11 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	tagColor := r.URL.Query().Get("tag_color")
 	tagStarsStr := r.URL.Query().Get("tag_stars")
 	noteSearch := r.URL.Query().Get("note_search")
+	// Page-level directory filter (set by Chief's deep-link or the "Directory:"
+	// input in the top filter bar). Prefix-matched against any command's
+	// working directory in the session so /Users/me/proj also matches
+	// commands run in /Users/me/proj/src.
+	directory := strings.TrimRight(r.URL.Query().Get("directory"), "/")
 
 	// Filter sessions
 	filteredSessions := make([]Session, 0)
@@ -169,7 +174,25 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		
+
+		// Directory filtering — page-level. Prefix-match against any command's
+		// working directory in the session so /Users/me/proj matches sessions
+		// with commands run in /Users/me/proj/src etc. Cheap first pass
+		// before the more expensive keyword/tag scans.
+		if directory != "" {
+			found := false
+			for _, cmd := range session.Commands {
+				d := strings.TrimRight(cmd.Directory, "/")
+				if d == directory || strings.HasPrefix(d, directory+"/") {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+
 		// Category filtering
 		if category != "" && category != "all" {
 			found := false
@@ -183,7 +206,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 		}
-		
+
 		// Keyword filtering - split by whitespace and match all tokens
 		if keyword != "" {
 			// Split keyword into tokens

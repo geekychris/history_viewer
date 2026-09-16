@@ -798,6 +798,10 @@ input[type="date"]:focus, select:focus, .search-box:focus {
 <input type="text" class="search-box" id="keywordFilter" placeholder="Search sessions..." onkeypress="if(event.key==='Enter') applyFilters()">
 </div>
 <div class="filter-group">
+<label>Directory:</label>
+<input type="text" class="search-box" id="directoryFilter" placeholder="Filter by working directory (prefix match)" onkeypress="if(event.key==='Enter') applyFilters()" title="Restricts every panel on the page — session list, timeline, stats — to sessions whose commands ran under this directory. Use the Directory Explorer below for one-off exploration.">
+</div>
+<div class="filter-group">
 <label>Note:</label>
 <input type="text" class="search-box" id="noteFilter" placeholder="Search notes..." onkeypress="if(event.key==='Enter') applyFilters()">
 </div>
@@ -1132,6 +1136,7 @@ let filters = {
     endDate: '',
     category: 'all',
     keyword: '',
+    directory: '',
     noteSearch: '',
     tagKeyword: '',
     tagStars: ''
@@ -1170,6 +1175,9 @@ async function fetchData() {
         }
         if (filters.keyword) {
             params.append('keyword', filters.keyword);
+        }
+        if (filters.directory) {
+            params.append('directory', filters.directory);
         }
         if (filters.noteSearch) {
             params.append('note_search', filters.noteSearch);
@@ -1669,6 +1677,7 @@ function applyFilters() {
     filters.endDate = document.getElementById('endDate').value;
     filters.category = document.getElementById('categoryFilter').value;
     filters.keyword = document.getElementById('keywordFilter').value;
+    filters.directory = document.getElementById('directoryFilter').value;
     filters.noteSearch = document.getElementById('noteFilter').value;
     filters.tagKeyword = document.getElementById('tagKeywordFilter').value;
     filters.tagStars = document.getElementById('tagStarsFilter').value;
@@ -2418,33 +2427,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // We retry with backoff for up to ~6s, swallowing errors along the way.
     let __deepLinkAppliedVersion = -1;
     const applyDirectoryFilter = (dir) => {
-        const input = document.getElementById('directoryPathInput');
-        if (!input || !dir) return;
-        input.value = dir;
-        // The Directory Explorer section is collapsed by default. When a
-        // deep-link filter is applied programmatically the user has no way
-        // to notice results unless we expand it — otherwise "did the filter
-        // even fire?" is a fair question. Expand and update the toggle
-        // glyph to match toggleSection()'s open state.
-        const section = document.getElementById('directoryExplorerSection');
-        const toggleIcon = document.getElementById('directoryExplorerToggle');
-        if (section && section.style.display === 'none') {
-            section.style.display = 'block';
-            if (toggleIcon) toggleIcon.textContent = '▼';
-        }
-        input.scrollIntoView({behavior: 'smooth', block: 'center'});
-        const attempt = (n) => {
-            if (typeof searchDirectory !== 'function') return;
-            try {
-                const origAlert = window.alert;
-                window.alert = () => {};
-                searchDirectory();
-                window.alert = origAlert;
-            } catch (err) {
-                if (n < 12) setTimeout(() => attempt(n + 1), 500);
+        if (!dir) return;
+        // (1) Page-level filter — this is the primary one: it restricts the
+        // whole session list, timeline, and stats to that working directory.
+        // Chief's deep-link relies on this to focus the entire view on a
+        // project.  The Directory Explorer below is a drill-in tool; setting
+        // its input alone (previous behaviour) only affected that panel.
+        const pageFilter = document.getElementById('directoryFilter');
+        if (pageFilter) {
+            pageFilter.value = dir;
+            if (typeof applyFilters === 'function') {
+                try { applyFilters(); } catch (e) { console.warn('applyFilters:', e); }
             }
-        };
-        setTimeout(() => attempt(0), 400);
+        }
+        // (2) Directory Explorer sub-panel — also populate + expand it as a
+        // convenience so drill-in is one click away instead of two.
+        const input = document.getElementById('directoryPathInput');
+        if (input) {
+            input.value = dir;
+            const section = document.getElementById('directoryExplorerSection');
+            const toggleIcon = document.getElementById('directoryExplorerToggle');
+            if (section && section.style.display === 'none') {
+                section.style.display = 'block';
+                if (toggleIcon) toggleIcon.textContent = '▼';
+            }
+            const attempt = (n) => {
+                if (typeof searchDirectory !== 'function') return;
+                try {
+                    const origAlert = window.alert;
+                    window.alert = () => {};
+                    searchDirectory();
+                    window.alert = origAlert;
+                } catch (err) {
+                    if (n < 12) setTimeout(() => attempt(n + 1), 500);
+                }
+            };
+            setTimeout(() => attempt(0), 400);
+        }
     };
     // Initial URL param → immediate apply.
     try {
