@@ -17,6 +17,13 @@ type Config struct {
 	HomeDir              string                  `json:"home_dir"`
 	SessionHeuristics    SessionHeuristics       `json:"session_heuristics"`
 	CustomCategoryPatterns []CustomCategoryPattern `json:"custom_category_patterns,omitempty"`
+
+	// InitialDirFilter, when non-empty, deep-links the UI to a specific
+	// directory on startup — set via the --filter-dir CLI flag. The web
+	// UI reads it via a query param (?dir=…) so external tools (e.g.,
+	// Chief) can drop a user straight into the filtered view.
+	// Not persisted to config.json (ephemeral per-invocation).
+	InitialDirFilter string `json:"-"`
 }
 
 // SessionHeuristics defines configurable parameters for session detection

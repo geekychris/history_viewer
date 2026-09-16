@@ -6,6 +6,21 @@ A powerful Go-based tool for analyzing your zsh command history with AI-powered 
 - **Web UI**: Browser-based interface with interactive charts (default)
 - **Native UI**: Cross-platform desktop application for macOS and Linux
 
+## Deep-linking into a directory filter
+
+Pass `--filter-dir <path>` to jump straight to the "commands by directory"
+view for a specific working directory on launch. The web UI honours the
+equivalent `?dir=<path>` URL parameter, so external tools can drop a user
+directly into the filtered view.
+
+```bash
+history_viewer --port 9910 --filter-dir "$HOME/code/my-project"
+# then open http://localhost:9910/?dir=/Users/me/code/my-project
+```
+
+Chief ([github.com/geekychris/chief](https://github.com/geekychris/chief))
+uses this to open the viewer scoped to the currently-focused project.
+
 ## Features
 
 ### Core Features

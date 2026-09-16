@@ -2403,13 +2403,37 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('metadataColor').value = this.dataset.color;
         });
     });
-    
+
     // Close modals when clicking outside
     window.onclick = function(event) {
         if (event.target.classList.contains('modal')) {
             event.target.style.display = 'none';
         }
     };
+
+    // Deep-link support: ?dir=<path> pre-fills the "commands by directory"
+    // search on load. Used by tools like Chief to open the viewer scoped
+    // to a specific project.
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const dir = params.get('dir');
+        if (dir) {
+            const input = document.getElementById('directoryPathInput');
+            if (input) {
+                input.value = dir;
+                // Give the initial data-load a beat before firing the search
+                // — the sessions list is fetched async; searchDirectory()
+                // itself only needs the input value, but scrolling into view
+                // is nicer once the page has settled.
+                if (typeof searchDirectory === 'function') {
+                    setTimeout(() => searchDirectory(), 150);
+                    input.scrollIntoView({behavior: 'smooth', block: 'center'});
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('deep-link parse failed:', e);
+    }
 });
 
 // Command Search Functions
