@@ -1,4 +1,4 @@
-.PHONY: all build build-web build-native clean deps deps-check deps-ubuntu deps-macos test help
+.PHONY: all build build-web build-native build-app build-menu install-app install-menu clean deps deps-check deps-ubuntu deps-macos test help
 
 # Binary name
 BINARY=history_viewer
@@ -134,6 +134,60 @@ run-web: build-web
 # Run the native UI
 run-native: build-native
 	./$(BINARY) -ui native
+
+# ---- Wails wrapper + menu bar (adds "native-app" experience) ----
+
+WAILS_BIN ?= $(shell go env GOPATH)/bin/wails
+APPS_DIR  ?= $(HOME)/Applications
+
+# Build the Wails wrapper .app.
+#
+# We deliberately bypass `wails build` and use plain `go build` with the
+# wails "desktop,production" build tags. `wails build`'s bindings-generator
+# step tends to hang on this project (we don't have any Go->JS bindings —
+# the app is a thin child-spawn + WebView redirect). Plain go build with
+# the right tags + a hand-assembled .app bundle produces the same result
+# in seconds.
+build-app:
+	@echo "Building History Viewer.app (native wrapper)..."
+	@mkdir -p cmd/hv-app/build/bin
+	@CGO_LDFLAGS="-framework UniformTypeIdentifiers -Wl,-no_warn_duplicate_libraries" \
+		go build -tags "desktop,production" \
+		-ldflags "-w -s" \
+		-o cmd/hv-app/build/bin/HistoryViewer \
+		./cmd/hv-app
+	@rm -rf "cmd/hv-app/build/bin/History Viewer.app"
+	@mkdir -p "cmd/hv-app/build/bin/History Viewer.app/Contents/MacOS"
+	@mkdir -p "cmd/hv-app/build/bin/History Viewer.app/Contents/Resources"
+	@mv cmd/hv-app/build/bin/HistoryViewer "cmd/hv-app/build/bin/History Viewer.app/Contents/MacOS/HistoryViewer"
+	@cp cmd/hv-app/Info.plist "cmd/hv-app/build/bin/History Viewer.app/Contents/Info.plist"
+	@echo "Built cmd/hv-app/build/bin/History Viewer.app"
+
+# Build the menu-bar helper binary + .app bundle.
+build-menu:
+	@echo "Building History Viewer Menu.app (systray helper)..."
+	@go build -o cmd/hv-menu/hv-menu ./cmd/hv-menu
+	@rm -rf cmd/hv-menu/HistoryViewerMenu.app
+	@mkdir -p "cmd/hv-menu/History Viewer Menu.app/Contents/MacOS"
+	@cp cmd/hv-menu/hv-menu "cmd/hv-menu/History Viewer Menu.app/Contents/MacOS/hv-menu"
+	@cp cmd/hv-menu/Info.plist "cmd/hv-menu/History Viewer Menu.app/Contents/Info.plist"
+	@echo "Built cmd/hv-menu/History Viewer Menu.app"
+
+# Install both .apps into ~/Applications. Kills any running instance first
+# so LaunchServices picks up the new bundle. Requires build-native for the
+# core binary the .app wrapper depends on.
+install-app: build-native build-app
+	@mkdir -p $(APPS_DIR)
+	@rm -rf "$(APPS_DIR)/History Viewer.app"
+	@cp -R "cmd/hv-app/build/bin/History Viewer.app" "$(APPS_DIR)/"
+	@echo "Installed $(APPS_DIR)/History Viewer.app"
+	@echo "(Depends on '$(BINARY)' being on PATH — run 'make install' to place it in /usr/local/bin.)"
+
+install-menu: build-menu
+	@mkdir -p $(APPS_DIR)
+	@rm -rf "$(APPS_DIR)/History Viewer Menu.app"
+	@cp -R "cmd/hv-menu/History Viewer Menu.app" "$(APPS_DIR)/"
+	@echo "Installed $(APPS_DIR)/History Viewer Menu.app"
 
 # Show help
 help:

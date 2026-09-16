@@ -21,6 +21,30 @@ history_viewer --port 9910 --filter-dir "$HOME/code/my-project"
 Chief ([github.com/geekychris/chief](https://github.com/geekychris/chief))
 uses this to open the viewer scoped to the currently-focused project.
 
+## Native app + menu bar (macOS)
+
+Two additional binaries live under `cmd/` for a fully-native experience:
+
+- **cmd/hv-app** — a [Wails v2](https://wails.io) wrapper that opens the
+  existing web UI in a native macOS window. Spawns `history_viewer --ui web`
+  on a random loopback port and points its embedded WebView at it. Accepts
+  the same `--filter-dir` flag, forwarded to the child.
+- **cmd/hv-menu** — a menu-bar helper (`LSUIElement=true`, no Dock icon)
+  that launches the .app on click. Menu items: Open, Reopen (fresh window),
+  Quit.
+
+Build & install both:
+
+```bash
+make install            # /usr/local/bin/history_viewer  (core CLI)
+make install-app        # ~/Applications/History Viewer.app  (native window)
+make install-menu       # ~/Applications/History Viewer Menu.app  (menu bar)
+```
+
+The Wails build uses `wails build` when available; the Makefile also has a
+tags-based fallback that produces the same .app via plain `go build -tags
+"desktop,production"` + a hand-written `Info.plist`.
+
 ## Features
 
 ### Core Features

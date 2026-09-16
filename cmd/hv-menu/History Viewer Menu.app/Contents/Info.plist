@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>History Viewer Menu</string>
+    <key>CFBundleDisplayName</key>
+    <string>History Viewer Menu</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.geekychris.history-viewer-menu</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1</string>
+    <key>CFBundleVersion</key>
+    <string>0.1</string>
+    <key>CFBundleExecutable</key>
+    <string>hv-menu</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <!-- Menu-bar-only: no Dock icon, no app-switcher, no focus stealing. -->
+    <key>LSUIElement</key>
+    <true/>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+</dict>
+</plist>

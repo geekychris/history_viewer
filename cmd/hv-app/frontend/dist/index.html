@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>History Viewer</title>
+<style>
+  html, body { background:#20202a; color:#c8c8d0; font-family:-apple-system,Menlo,monospace; margin:0; height:100%; }
+  .box { display:flex; align-items:center; justify-content:center; height:100%; font-size:12px; opacity:0.7; }
+</style>
+</head>
+<body>
+<div class="box">Loading History Viewer…</div>
+<script>
+  // The Wails backend hands the real target URL via OnDomReady's
+  // WindowExecJS or by rewriting this file at build time. If neither
+  // fires, fall back to a well-known localhost path (best-effort).
+  setTimeout(() => {
+    // If we're still on the stub after 300ms and no runtime.href change
+    // happened, try the default port so the user isn't stuck.
+    if (window.location.pathname === '/' && !window.__HV_REDIRECTED__) {
+      window.__HV_REDIRECTED__ = true;
+      window.location.replace('http://127.0.0.1:9910/');
+    }
+  }, 300);
+</script>
+</body>
+</html>

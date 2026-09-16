@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "History Viewer",
+  "outputfilename": "HistoryViewer",
+  "frontend:install": "true",
+  "frontend:build": "true",
+  "frontend:dev:watcher": "true",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "geekychris",
+    "email": ""
+  },
+  "info": {
+    "companyName": "geekychris",
+    "productName": "History Viewer",
+    "productVersion": "0.1.0",
+    "comments": "Wails wrapper around geekychris/history_viewer"
+  }
+}
