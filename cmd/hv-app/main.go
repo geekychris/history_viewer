@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,7 +34,6 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:frontend/dist
@@ -102,6 +102,29 @@ func main() {
 		target += "?dir=" + urlEscape(*filterDir)
 	}
 
+	// Redirect any Wails-served request to the child web server. Wails'
+	// initial webview navigation hits AssetServer once (path may be `/`,
+	// `/index.html`, or a scheme-specific path); we send it straight to
+	// the child server. Everything after that flows over normal HTTP
+	// directly to the child — Wails is out of the loop, so DOM updates
+	// don't trigger any re-navigation (which would reset scroll state
+	// and cause the flicker the user reported).
+	redirectMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Printf("hv-app: assetserver hit %s → redirect to %s", r.URL.Path, target)
+			// Serve an HTML page with a meta refresh + JS location.replace.
+			// Some webview wrappers don't reliably follow 302 responses
+			// when the request came from the initial navigation.
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprintf(w, `<!DOCTYPE html>
+<html><head>
+<meta http-equiv="refresh" content="0; url=%s">
+<style>body{background:#20202a;color:#c8c8d0;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}</style>
+<script>window.location.replace(%q);</script>
+</head><body>Loading History Viewer…</body></html>`, target, target)
+		})
+	}
+
 	err = wails.Run(&options.App{
 		Title:            "History Viewer",
 		Width:            1200,
@@ -115,15 +138,11 @@ func main() {
 			app.mu.Unlock()
 			log.Printf("hv-app: target %s", target)
 		},
-		OnDomReady: func(ctx context.Context) {
-			// Belt-and-suspenders: the embedded stub also does location.replace,
-			// but if for any reason it didn't fire, force it here.
-			runtime.WindowExecJS(ctx, fmt.Sprintf("window.location.replace(%q);", target))
-		},
 		OnBeforeClose: app.beforeClose,
 		OnShutdown:    app.shutdown,
 		AssetServer: &assetserver.Options{
-			Assets: assets,
+			Assets:     assets,
+			Middleware: redirectMiddleware,
 		},
 		Mac: &mac.Options{
 			About: &mac.AboutInfo{
