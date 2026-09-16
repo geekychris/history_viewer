@@ -35,6 +35,26 @@ var historyLineRegex = regexp.MustCompile(`^:\s*(\d+):(\d+);(.*)$`)
 // Match cd command but stop at &&, ||, ;, or |
 var cdRegex = regexp.MustCompile(`^\s*cd\s+([^;&|]+)`)
 
+// pushdRegex — proper directory stack push. `pushd <path>` is like `cd`
+// for our purposes; the fact that it also pushes to a stack matters only
+// if we later see `popd`, which we handle separately.
+var pushdRegex = regexp.MustCompile(`^\s*pushd\s+([^;&|]+)`)
+
+// popdRegex — pop the most recent pushd. Restores the previous cwd.
+var popdRegex = regexp.MustCompile(`^\s*popd(\s|$)`)
+
+// gitCRegex — `git -C <path> ...` runs the git command with cwd=<path>.
+// Doesn't change the caller's cwd (git returns to it), but it's a strong
+// signal that <path> is a real dir the user is working in — good hint
+// when the derived cwd looks stale.
+var gitCRegex = regexp.MustCompile(`\bgit\s+-C\s+([^\s;&|]+)`)
+
+// absPathRegex — any absolute path token in the command line. Used to
+// correct drifted cwd: if the command mentions /Users/me/foo/bar.go but
+// the derived cwd is somewhere unrelated, cwd was almost certainly wrong.
+// Matches Unix-style abs paths only (no C:\, this is macOS/Linux).
+var absPathRegex = regexp.MustCompile(`(?:^|\s|["'=(])((?:/[^\s"'()`+"`"+`;&|]+)+)`)
+
 func (p *Parser) ParseHistory() ([]HistoryEntry, error) {
 	file, err := os.Open(p.config.HistoryFile)
 	if err != nil {
@@ -63,18 +83,44 @@ func (p *Parser) ParseHistory() ([]HistoryEntry, error) {
 	}
 	var lastTS time.Time
 
-	// Local closure so both the main path and the read-ahead branch below share
-	// the same cwd-tracking logic (including the time-gap reset).
+	// Proper directory stack for pushd/popd. Grows/shrinks alongside
+	// currentDir; empty stack + popd is a no-op (matches shell behaviour).
+	var dirStack []string
+	// Local closure so both the main path and the read-ahead branch below
+	// share the same cwd-tracking logic (time-gap reset, cd, pushd/popd,
+	// git -C hints, absolute-path correction).
 	appendEntry := func(timestamp int64, duration int, command string) {
 		ts := time.Unix(timestamp, 0)
 		if !lastTS.IsZero() && ts.Sub(lastTS) > cwdResetGap {
 			currentDir = p.config.HomeDir
+			dirStack = nil
 		}
 		lastTS = ts
-		if cdMatches := cdRegex.FindStringSubmatch(command); len(cdMatches) > 1 {
-			newDir := strings.TrimSpace(cdMatches[1])
-			currentDir = p.resolveDirectory(currentDir, newDir)
+
+		// 1. Explicit cd/pushd/popd — the strongest signals, applied first.
+		if m := cdRegex.FindStringSubmatch(command); len(m) > 1 {
+			currentDir = p.resolveDirectory(currentDir, strings.TrimSpace(m[1]))
 		}
+		if m := pushdRegex.FindStringSubmatch(command); len(m) > 1 {
+			dirStack = append(dirStack, currentDir)
+			currentDir = p.resolveDirectory(currentDir, strings.TrimSpace(m[1]))
+		}
+		if popdRegex.MatchString(command) && len(dirStack) > 0 {
+			currentDir = dirStack[len(dirStack)-1]
+			dirStack = dirStack[:len(dirStack)-1]
+		}
+
+		// 2. Hint-based correction: if the command mentions an absolute
+		//    path (via `git -C`, an editor invocation, or just any abs
+		//    path token) that clearly conflicts with our derived cwd,
+		//    correct cwd to the hint. This catches drift from
+		//    interleaved terminals where the cd chain got confused.
+		if hint := inferHintCwd(command, p.config.HomeDir); hint != "" {
+			if !sharesPrefix(currentDir, hint) {
+				currentDir = hint
+			}
+		}
+
 		entries = append(entries, HistoryEntry{
 			ID:          id,
 			Timestamp:   ts,
@@ -156,6 +202,89 @@ func (p *Parser) resolveDirectory(currentDir, newDir string) string {
 
 	// Resolve relative path, then sanitise the result — see sanitizeDir.
 	return sanitizeDir(filepath.Clean(filepath.Join(currentDir, newDir)), p.config.HomeDir)
+}
+
+// inferHintCwd extracts a "the user is probably in this directory" hint
+// from a command by looking for:
+//
+//  1. `git -C <path>` — path is definitely a real dir the user cares about.
+//  2. Any absolute path token that refers to an existing file — the
+//     directory containing that file is a strong candidate for cwd.
+//
+// Returns "" when no confident hint is available. We deliberately keep
+// this cautious: better to leave a possibly-stale cwd than to flip it on
+// weak evidence (e.g., a command referencing a path in a shell script it
+// happens to run).
+func inferHintCwd(command, home string) string {
+	// Prefer git -C when present — the strongest signal.
+	if m := gitCRegex.FindStringSubmatch(command); len(m) > 1 {
+		p := strings.Trim(m[1], `"'`)
+		if strings.HasPrefix(p, "~/") {
+			p = filepath.Join(home, p[2:])
+		}
+		if filepath.IsAbs(p) {
+			if info, err := os.Stat(p); err == nil && info.IsDir() {
+				return filepath.Clean(p)
+			}
+			// Even if the dir doesn't exist right now (user deleted it),
+			// git -C is a strong intent signal.
+			return filepath.Clean(p)
+		}
+	}
+	// Any absolute path in the command that resolves to a real file.
+	// We use the FIRST match (typically the most operative arg) and stop.
+	for _, m := range absPathRegex.FindAllStringSubmatch(command, -1) {
+		if len(m) < 2 {
+			continue
+		}
+		p := strings.Trim(m[1], `"'`)
+		if isSystemPath(p, home) {
+			continue
+		}
+		if info, err := os.Stat(p); err == nil {
+			if info.IsDir() {
+				return filepath.Clean(p)
+			}
+			return filepath.Clean(filepath.Dir(p))
+		}
+	}
+	return ""
+}
+
+// systemPathPrefixes are directories that appear all over shell history but
+// almost never indicate the user's actual cwd. Excluded UNLESS the path
+// lives under HOME (in which case it's clearly a user artefact — this also
+// matters because macOS $TMPDIR is under /var/folders, so test tempdirs
+// don't trip the blocklist).
+var systemPathPrefixes = []string{
+	"/usr", "/bin", "/sbin", "/tmp", "/opt", "/etc",
+	"/var", "/System", "/Library", "/Applications", "/dev",
+}
+
+func isSystemPath(p, home string) bool {
+	if home != "" && (p == home || strings.HasPrefix(p, home+"/")) {
+		return false
+	}
+	for _, sp := range systemPathPrefixes {
+		if p == sp || strings.HasPrefix(p, sp+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// sharesPrefix reports whether a is a prefix of b or vice-versa (with
+// slash-boundary respect so /a/b is not a prefix of /a/bad).
+func sharesPrefix(a, b string) bool {
+	a = strings.TrimRight(a, "/")
+	b = strings.TrimRight(b, "/")
+	if a == b {
+		return true
+	}
+	if strings.HasPrefix(a, b+"/") || strings.HasPrefix(b, a+"/") {
+		return true
+	}
+	return false
 }
 
 // sanitizeDir applies three defensive fixes to a resolved cwd. All of them
