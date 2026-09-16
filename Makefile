@@ -1,4 +1,4 @@
-.PHONY: all build build-web build-native build-app build-menu install-app install-menu clean deps deps-check deps-ubuntu deps-macos test help
+.PHONY: all build build-web build-native build-app build-menu install-app install-menu install-shell-hook clean deps deps-check deps-ubuntu deps-macos test help
 
 # Binary name
 BINARY=history_viewer
@@ -115,8 +115,16 @@ test:
 	@echo "Running tests..."
 	go test -v ./...
 
+# Install the zsh preexec hook that logs $PWD per command. Writes into
+# ~/.zsh_cwd_history; the viewer uses that as ground truth so its cwd
+# column shows exactly where each command ran (not an inference).
+# Idempotent — safe to re-run.
+install-shell-hook:
+	@echo "Installing zsh cwd-logging hook..."
+	@bash scripts/install-shell-hook.sh
+
 # Install the binary to /usr/local/bin
-install: build-native
+install: build-native install-shell-hook
 	@echo "Installing $(BINARY) to /usr/local/bin..."
 	@sudo cp $(BINARY) /usr/local/bin/
 	@echo "Installation complete. Run '$(BINARY)' to start."
@@ -203,7 +211,8 @@ help:
 	@echo "  make deps-macos      - Install macOS GUI dependencies"
 	@echo "  make test            - Run tests"
 	@echo "  make clean           - Remove build artifacts"
-	@echo "  make install         - Install binary to /usr/local/bin"
+	@echo "  make install         - Install binary + zsh cwd hook"
+	@echo "  make install-shell-hook - Install just the zsh cwd-logging hook"
 	@echo "  make uninstall       - Remove binary from /usr/local/bin"
 	@echo "  make run-web         - Build and run web UI"
 	@echo "  make run-native      - Build and run native UI"

@@ -6,6 +6,27 @@ A powerful Go-based tool for analyzing your zsh command history with AI-powered 
 - **Web UI**: Browser-based interface with interactive charts (default)
 - **Native UI**: Cross-platform desktop application for macOS and Linux
 
+## Accurate cwd tracking (`preexec` hook)
+
+Zsh's `~/.zsh_history` records timestamps and commands but not the
+working directory each command ran in. Without help, the viewer has to
+*infer* cwd by replaying `cd` chains — which drifts badly because every
+terminal writes into the same history file interleaved.
+
+`scripts/install-shell-hook.sh` installs a tiny `preexec` hook that
+appends `$PWD` alongside each command to `~/.zsh_cwd_history`. The
+viewer prefers this ground-truth log and falls back to inference for
+older entries. Your main `~/.zsh_history` is untouched — fzf, atuin,
+and other history tools keep working.
+
+```bash
+bash scripts/install-shell-hook.sh   # writes ~/.config/history_viewer/cwd-hook.zsh
+                                     # + BEGIN/END block into ~/.zshrc (idempotent)
+exec zsh                             # activate now
+```
+
+`make install` runs this automatically. See INSTALL.md for details.
+
 ## Deep-linking into a directory filter
 
 Pass `--filter-dir <path>` to jump straight to the "commands by directory"

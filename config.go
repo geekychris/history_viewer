@@ -9,6 +9,12 @@ import (
 
 type Config struct {
 	HistoryFile          string                  `json:"history_file"`
+	// CwdHistoryFile — supplemental log written by the preexec hook
+	// installed via scripts/install-shell-hook.sh. When present, each
+	// line is <epoch>\t<pwd>\t<cmd> (with \n and \t escaped in cmd).
+	// The parser uses it as ground truth, overriding cd-chain inference.
+	// Defaults to $HOME/.zsh_cwd_history; empty disables the lookup.
+	CwdHistoryFile       string                  `json:"cwd_history_file"`
 	Port                 int                     `json:"port"`
 	SessionTimeout       time.Duration           `json:"session_timeout_minutes"`
 	OllamaURL            string                  `json:"ollama_url"`
@@ -64,6 +70,7 @@ func LoadConfig() (*Config, error) {
 
 	config := &Config{
 		HistoryFile:    filepath.Join(homeDir, ".zsh_history"),
+		CwdHistoryFile: filepath.Join(homeDir, ".zsh_cwd_history"),
 		Port:           8080,
 		SessionTimeout: 30 * time.Minute,
 		OllamaURL:      "http://localhost:11434",
@@ -86,6 +93,9 @@ func LoadConfig() (*Config, error) {
 		if err := json.Unmarshal(data, &fileConfig); err == nil {
 			if fileConfig.HistoryFile != "" {
 				config.HistoryFile = fileConfig.HistoryFile
+			}
+			if fileConfig.CwdHistoryFile != "" {
+				config.CwdHistoryFile = fileConfig.CwdHistoryFile
 			}
 			if fileConfig.Port != 0 {
 				config.Port = fileConfig.Port

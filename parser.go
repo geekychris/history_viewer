@@ -62,13 +62,18 @@ func (p *Parser) ParseHistory() ([]HistoryEntry, error) {
 	}
 	defer file.Close()
 
+	// Ground truth from the preexec hook (see
+	// scripts/history-viewer-cwd-hook.zsh). When available for a given
+	// (timestamp, command) pair, it wins over cd-chain inference.
+	cwdTruth := p.loadCwdHistory()
+
 	var entries []HistoryEntry
 	scanner := bufio.NewScanner(file)
-	
+
 	// Increase buffer size for long commands
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 1024*1024)
-	
+
 	currentDir := p.config.HomeDir
 	id := 1
 	// Reset cwd tracking whenever we see a time gap longer than this. Rationale:
@@ -91,13 +96,31 @@ func (p *Parser) ParseHistory() ([]HistoryEntry, error) {
 	// git -C hints, absolute-path correction).
 	appendEntry := func(timestamp int64, duration int, command string) {
 		ts := time.Unix(timestamp, 0)
-		if !lastTS.IsZero() && ts.Sub(lastTS) > cwdResetGap {
-			currentDir = p.config.HomeDir
-			dirStack = nil
+
+		// Ground-truth override: if the preexec hook logged this exact
+		// (ts, command), use that PWD verbatim. Bypass all inference
+		// (time-gap reset, cd inheritance, hint correction) — we know
+		// where the command actually ran.
+		hasTruth := false
+		if cwdTruth != nil {
+			if truth, ok := cwdTruth[cwdKey(timestamp, command)]; ok {
+				currentDir = truth
+				dirStack = nil
+				hasTruth = true
+			}
+		}
+
+		if !hasTruth {
+			if !lastTS.IsZero() && ts.Sub(lastTS) > cwdResetGap {
+				currentDir = p.config.HomeDir
+				dirStack = nil
+			}
 		}
 		lastTS = ts
 
-		// 1. Explicit cd/pushd/popd — the strongest signals, applied first.
+		// 1. Explicit cd/pushd/popd — always applied so currentDir
+		//    tracks correctly for the NEXT entry (whether or not this
+		//    one had truth).
 		if m := cdRegex.FindStringSubmatch(command); len(m) > 1 {
 			currentDir = p.resolveDirectory(currentDir, strings.TrimSpace(m[1]))
 		}
@@ -110,14 +133,12 @@ func (p *Parser) ParseHistory() ([]HistoryEntry, error) {
 			dirStack = dirStack[:len(dirStack)-1]
 		}
 
-		// 2. Hint-based correction: if the command mentions an absolute
-		//    path (via `git -C`, an editor invocation, or just any abs
-		//    path token) that clearly conflicts with our derived cwd,
-		//    correct cwd to the hint. This catches drift from
-		//    interleaved terminals where the cd chain got confused.
-		if hint := inferHintCwd(command, p.config.HomeDir); hint != "" {
-			if !sharesPrefix(currentDir, hint) {
-				currentDir = hint
+		// 2. Hint-based correction — skip when we have truth.
+		if !hasTruth {
+			if hint := inferHintCwd(command, p.config.HomeDir); hint != "" {
+				if !sharesPrefix(currentDir, hint) {
+					currentDir = hint
+				}
 			}
 		}
 
@@ -142,13 +163,14 @@ func (p *Parser) ParseHistory() ([]HistoryEntry, error) {
 			duration, _ := strconv.Atoi(matches[2])
 			command := matches[3]
 
-			// Handle multi-line commands
+			// Handle multi-line commands — read forward until we hit
+			// either EOF or another history header line.
+			readAhead := false
 			for scanner.Scan() {
 				nextLine := scanner.Text()
 				if historyLineRegex.MatchString(nextLine) {
-					// This is a new command, need to "unscan" it
-					// Since we can't unscan, we'll process it in the next iteration
 					line = nextLine
+					readAhead = true
 					break
 				}
 				command += "\n" + nextLine
@@ -156,8 +178,11 @@ func (p *Parser) ParseHistory() ([]HistoryEntry, error) {
 
 			appendEntry(timestamp, duration, command)
 
-			// If we read ahead to check for multiline, process that line now
-			if historyLineRegex.MatchString(line) {
+			// If we consumed an extra header line in the look-ahead,
+			// process it now. Without the readAhead guard we'd
+			// double-count the last entry when EOF closes the inner
+			// loop with `line` still holding the current outer text.
+			if readAhead {
 				matches = historyLineRegex.FindStringSubmatch(line)
 				if len(matches) == 4 {
 					ts2, _ := strconv.ParseInt(matches[1], 10, 64)
@@ -271,6 +296,54 @@ func isSystemPath(p, home string) bool {
 		}
 	}
 	return false
+}
+
+// loadCwdHistory reads the supplemental cwd log written by the preexec
+// hook (see scripts/history-viewer-cwd-hook.zsh). Line format:
+//
+//	<epoch>\t<pwd>\t<cmd>
+//
+// Commands are stored with literal newlines escaped as `\n` and literal
+// tabs as `\t` so each record fits on one physical line. This function
+// reverses that encoding and returns a map keyed by (ts, cmd) so the
+// parser can look up ground-truth cwd for a given history entry.
+//
+// Any I/O error or malformed line is silently ignored — the caller
+// degrades gracefully to inference.
+func (p *Parser) loadCwdHistory() map[string]string {
+	if p.config.CwdHistoryFile == "" {
+		return nil
+	}
+	f, err := os.Open(p.config.CwdHistoryFile)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	out := make(map[string]string)
+	sc := bufio.NewScanner(f)
+	buf := make([]byte, 0, 64*1024)
+	sc.Buffer(buf, 1024*1024)
+	for sc.Scan() {
+		parts := strings.SplitN(sc.Text(), "\t", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		ts, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			continue
+		}
+		cmd := strings.ReplaceAll(parts[2], `\n`, "\n")
+		cmd = strings.ReplaceAll(cmd, `\t`, "\t")
+		out[cwdKey(ts, cmd)] = parts[1]
+	}
+	return out
+}
+
+// cwdKey builds the lookup key used by loadCwdHistory. NUL separator
+// avoids collisions from any command text.
+func cwdKey(ts int64, cmd string) string {
+	return strconv.FormatInt(ts, 10) + "\x00" + cmd
 }
 
 // sharesPrefix reports whether a is a prefix of b or vice-versa (with

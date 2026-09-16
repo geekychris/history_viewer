@@ -66,6 +66,50 @@ You should see the help message with available options.
 
 ---
 
+## Enable Accurate Cwd Tracking (Recommended)
+
+Zsh's `~/.zsh_history` records timestamps and commands but **not the
+directory each command ran in**. Without help, the viewer has to *infer*
+cwd by replaying `cd` chains — which drifts badly because every terminal
+writes into the same history file.
+
+This project ships a tiny `preexec` hook that logs `$PWD` alongside each
+command to a supplemental file (`~/.zsh_cwd_history`). The viewer prefers
+that ground-truth log when available and falls back to inference for
+anything logged before the hook was installed. Your `~/.zsh_history` is
+left completely untouched, so other tools (fzf, atuin, etc.) keep
+working.
+
+**Install (from a source checkout or the repo scripts directory):**
+
+```bash
+bash scripts/install-shell-hook.sh
+# then reload your shell:
+exec zsh
+```
+
+**What it does:**
+- Copies `scripts/history-viewer-cwd-hook.zsh` to
+  `~/.config/history_viewer/cwd-hook.zsh`.
+- Adds an idempotent `BEGIN/END`-marker block to `~/.zshrc` that sources
+  the hook.
+- New commands are appended to `~/.zsh_cwd_history` as
+  `<epoch>\t<pwd>\t<cmd>`.
+
+**Uninstall:** delete the `BEGIN/END history_viewer cwd hook` block from
+`~/.zshrc` and remove `~/.config/history_viewer/cwd-hook.zsh`. The
+viewer silently falls back to inference for any commands logged
+afterwards. The truth log at `~/.zsh_cwd_history` can be deleted too if
+you don't want the historical data.
+
+**Custom log path:** set `HISTORY_VIEWER_CWD_LOG=/path/to/log` in your
+shell before the hook is sourced, and configure the same path in
+`~/.history_viewer.json` under `"cwd_history_file"`.
+
+`make install` runs this automatically after building the binary.
+
+---
+
 ## Install Ollama (Optional - for AI Features)
 
 History Viewer can use Ollama for AI-powered command analysis. This is optional but highly recommended.
