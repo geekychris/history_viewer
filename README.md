@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="History Viewer logo" width="180">
+</p>
+
 # Zsh History Viewer
 
 A powerful Go-based tool for analyzing your zsh command history with AI-powered insights via Ollama and comprehensive filtering, visualization, and export capabilities.
